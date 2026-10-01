@@ -29,7 +29,7 @@
         padding: 24px;
       }
       label { display: grid; gap: 9px; color: #d9e0dc; font-size: 14px; font-weight: 700; }
-      input {
+      input, select, textarea {
         min-height: 50px;
         border: 1px solid rgb(255 255 255 / 15%);
         border-radius: 10px;
@@ -38,6 +38,8 @@
         color: #fff;
         font: inherit;
       }
+      textarea { min-height: 132px; padding: 13px 14px; resize: vertical; line-height: 1.55; }
+      select { appearance: auto; }
       .hint { color: #84908c; font-size: 13px; line-height: 1.6; }
       .actions { display: flex; gap: 10px; align-items: center; }
       button {
@@ -52,23 +54,51 @@
         cursor: pointer;
       }
       button.secondary { border: 1px solid rgb(255 255 255 / 15%); background: transparent; color: #e6ece8; }
+      button:disabled { cursor: wait; opacity: .55; }
+      .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
       #status { min-height: 22px; color: #aeb9b5; font-size: 13px; }
       .ready { color: #d7ff64; }
+      .error { color: #ff9c8d; }
+      @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
     <main>
       <p class="eyebrow">电视 AGENT</p>
-      <h1>AI 服务配置</h1>
-      <p class="intro">密钥只保存在当前 AIO 插件范围内，页面不会回传明文。留空保存会清除已配置的密钥。</p>
+      <h1>模型与播放配置</h1>
+      <p class="intro">配置 OpenAI 兼容的模型服务、TVBox 单仓或多仓配置地址，以及可选的弹幕接口。密钥只保存在当前运行范围内，页面不会回传明文。</p>
       <form id="settings-form">
         <label>
-          AI API Key
-          <input id="secret" type="password" autocomplete="new-password" placeholder="sk-..." />
+          模型 API 地址
+          <div class="row">
+            <input id="model-endpoint" type="url" inputmode="url" autocomplete="url" placeholder="https://company-ai.addzero.site/v1" required />
+            <button id="refresh-models" class="secondary" type="button">刷新模型</button>
+          </div>
         </label>
+        <label>
+          模型
+          <select id="model" required>
+            <option value="auto">auto</option>
+          </select>
+        </label>
+        <label>
+          AI API Key
+          <input id="secret" type="password" autocomplete="new-password" placeholder="地址不变时留空会保留当前密钥" />
+        </label>
+        <label>
+          TVBox 配置地址
+          <textarea id="tvbox-configs" spellcheck="false" placeholder="每行一个 HTTPS 单仓或多仓配置地址"></textarea>
+        </label>
+        <label>
+          弹幕接口
+          <input id="danmaku-api" type="url" inputmode="url" spellcheck="false" placeholder="https://example.com/danmaku?name={name}&episode={episode}" />
+        </label>
+        <p class="hint">每行一个地址。默认使用 TVboxorg、hebijunge、haygcao、wangguo0 和 ZHOUYU86 的公开聚合配置；AIO 宿主会按安装清单校验配置入口。</p>
+        <p class="hint">弹幕接口可选。支持 TVBox/FongMi 协议：包含 {name} 或 {episode} 时使用 GET 模板，否则使用 POST；AIO 安装模式还需要管理员把接口加入出站白名单。</p>
         <p id="status" class="hint">正在读取配置状态……</p>
         <div class="actions">
           <button type="submit">保存配置</button>
+          <button id="test" class="secondary" type="button">测试连接</button>
           <button id="clear" class="secondary" type="button">清除 Key</button>
         </div>
       </form>
@@ -76,12 +106,31 @@
     <script>
       (() => {
         const form = document.querySelector('#settings-form');
+        const endpoint = document.querySelector('#model-endpoint');
+        const model = document.querySelector('#model');
         const secret = document.querySelector('#secret');
         const status = document.querySelector('#status');
+        const refreshModels = document.querySelector('#refresh-models');
+        const tvboxConfigs = document.querySelector('#tvbox-configs');
+        const danmakuApi = document.querySelector('#danmaku-api');
+        const test = document.querySelector('#test');
         const clear = document.querySelector('#clear');
 
         function request(method, path, body) {
           if (window.aioPlugin?.json) return window.aioPlugin.json(method, path, body);
+          if (window.TvAgentBridge?.request) {
+            const payload = window.TvAgentBridge.request(
+              method,
+              path,
+              body === undefined ? '' : JSON.stringify(body)
+            );
+            const response = JSON.parse(payload);
+            const result = response.body ? JSON.parse(response.body) : null;
+            if (response.status < 200 || response.status >= 300) {
+              throw new Error(result?.error || `HTTP ${response.status}`);
+            }
+            return Promise.resolve(result);
+          }
           return fetch(path, {
             method,
             headers: body === undefined ? undefined : { 'content-type': 'application/json' },
@@ -93,19 +142,67 @@
           });
         }
 
-        async function refresh() {
+        async function refreshSettings() {
           const settings = await request('GET', '/api/settings');
-          status.textContent = settings.has_secret ? '已配置 AI Key' : '尚未配置 AI Key';
+          endpoint.value = settings.model_endpoint || '';
+          setModels([settings.model].filter(Boolean), settings.model);
+          tvboxConfigs.value = (settings.tvbox_configs || []).join('\n');
+          danmakuApi.value = settings.danmaku_api || '';
+          status.textContent = settings.has_secret ? '配置已读取，密钥已保存' : '配置已读取，尚未保存密钥';
           status.className = settings.has_secret ? 'hint ready' : 'hint';
+        }
+
+        function setModels(models, selected) {
+          const current = selected || model.value;
+          model.replaceChildren();
+          const values = [...new Set([...models, current].filter(Boolean))];
+          values.forEach(value => model.append(new Option(value, value)));
+          model.value = values.includes(current) ? current : values[0] || '';
+          model.disabled = values.length === 0;
+        }
+
+        function payload() {
+          const value = secret.value.trim();
+          return {
+            model_endpoint: endpoint.value.trim(),
+            model: model.value.trim(),
+            tvbox_configs: tvboxConfigs.value
+              .split(/\r?\n/)
+              .map(value => value.trim())
+              .filter(Boolean),
+            danmaku_api: danmakuApi.value.trim(),
+            ...(value ? { secret: value } : {})
+          };
+        }
+
+        async function loadModels() {
+          const current = model.value.trim();
+          refreshModels.disabled = true;
+          status.textContent = '正在读取可用模型……';
+          status.className = 'hint';
+          try {
+            const models = await request('POST', '/api/models', {
+              model_endpoint: endpoint.value.trim(),
+              ...(secret.value.trim() ? { secret: secret.value.trim() } : {})
+            });
+            setModels(models, current);
+            status.textContent = `已读取 ${models.length} 个可用模型`;
+            status.className = 'hint ready';
+          } catch (error) {
+            status.textContent = error.message;
+            status.className = 'hint error';
+          } finally {
+            refreshModels.disabled = false;
+          }
         }
 
         form.addEventListener('submit', async event => {
           event.preventDefault();
           status.textContent = '正在保存……';
           try {
-            const result = await request('POST', '/api/settings', { secret: secret.value });
+            const result = await request('POST', '/api/settings', payload());
             secret.value = '';
-            status.textContent = result.has_secret ? 'AI Key 已保存' : 'AI Key 已清除';
+            status.textContent = result.has_secret ? '模型配置已保存' : '模型配置已保存，尚未配置 Key';
             status.className = result.has_secret ? 'hint ready' : 'hint';
           } catch (error) {
             status.textContent = error.message;
@@ -115,7 +212,7 @@
         clear.addEventListener('click', async () => {
           status.textContent = '正在清除……';
           try {
-            await request('POST', '/api/settings', { secret: '' });
+            await request('POST', '/api/settings', { ...payload(), secret: '' });
             secret.value = '';
             status.textContent = 'AI Key 已清除';
             status.className = 'hint';
@@ -124,7 +221,33 @@
           }
         });
 
-        refresh().catch(error => { status.textContent = error.message; });
+        refreshModels.addEventListener('click', loadModels);
+
+        test.addEventListener('click', async () => {
+          test.disabled = true;
+          status.textContent = '正在测试模型推理……';
+          status.className = 'hint';
+          try {
+            await request('POST', '/api/models/test', payload());
+            status.textContent = '连接成功，模型已返回推理结果';
+            status.className = 'hint ready';
+          } catch (error) {
+            status.textContent = error.message;
+            status.className = 'hint error';
+          } finally {
+            test.disabled = false;
+          }
+        });
+
+        refreshSettings().catch(error => {
+          status.textContent = error.message;
+          status.className = 'hint error';
+        });
+
+        window.tvAgentBack = () => {
+          window.location.replace('index.html');
+          return true;
+        };
       })();
     </script>
   </body>

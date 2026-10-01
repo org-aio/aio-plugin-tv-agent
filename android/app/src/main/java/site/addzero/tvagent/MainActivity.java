@@ -4,12 +4,14 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -23,6 +25,8 @@ import java.util.Map;
 public final class MainActivity extends Activity {
     private static final int VOICE_REQUEST = 41;
     private WebView webView;
+    private Object backRegistration;
+    private boolean backPending;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,17 +64,13 @@ public final class MainActivity extends Activity {
         webView.loadUrl("file:///android_asset/index.html");
         setContentView(webView);
         webView.requestFocus();
+        backRegistration = BackNavigation.register(this, this::handleBack);
     }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            webView.evaluateJavascript(
-                "(window.tvAgentBack && window.tvAgentBack()) === true",
-                handled -> {
-                    if (!"true".equals(handled)) finish();
-                }
-            );
+        if (isBackKey(keyCode)) {
+            handleBack();
             return true;
         }
         String key = keyName(keyCode);
@@ -79,6 +79,61 @@ public final class MainActivity extends Activity {
             return true;
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (isBackKey(keyCode)) {
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
+    @Override
+    protected void onDestroy() {
+        BackNavigation.unregister(this, backRegistration);
+        backRegistration = null;
+        super.onDestroy();
+    }
+
+    private void handleBack() {
+        if (backPending || webView == null) {
+            return;
+        }
+        if (hideKeyboardIfVisible()) {
+            return;
+        }
+        backPending = true;
+        webView.evaluateJavascript(
+            "(() => { try { return !!(window.tvAgentBack && window.tvAgentBack()); } catch (_) { return false; } })()",
+            handled -> {
+                backPending = false;
+                if ("true".equals(handled)) {
+                    return;
+                }
+                if (webView.canGoBack()) {
+                    webView.goBack();
+                } else {
+                    finish();
+                }
+            }
+        );
+    }
+
+    private boolean hideKeyboardIfVisible() {
+        Rect visible = new Rect();
+        webView.getWindowVisibleDisplayFrame(visible);
+        int rootHeight = webView.getRootView().getHeight();
+        if (rootHeight <= 0 || rootHeight - visible.bottom <= rootHeight * 0.15f) {
+            return false;
+        }
+        InputMethodManager input = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        input.hideSoftInputFromWindow(webView.getWindowToken(), 0);
+        return true;
+    }
+
+    private boolean isBackKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_ESCAPE;
     }
 
     @Override
@@ -158,7 +213,7 @@ public final class MainActivity extends Activity {
 
         @JavascriptInterface
         public boolean playVideo(String url, String title, String subtitle) {
-            if (url == null || !url.startsWith("https://")) {
+            if (url == null || (!url.startsWith("https://") && !url.startsWith("http://"))) {
                 return false;
             }
             runOnUiThread(() -> {
@@ -169,6 +224,11 @@ public final class MainActivity extends Activity {
                 startActivity(intent);
             });
             return true;
+        }
+
+        @JavascriptInterface
+        public void openSettings() {
+            runOnUiThread(() -> webView.loadUrl("file:///android_asset/settings.html"));
         }
     }
 

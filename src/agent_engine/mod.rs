@@ -37,6 +37,7 @@ pub(crate) async fn respond(
     request: AgentRequest,
     ai: &AiClient,
     tvbox: &TvBoxClient,
+    tvbox_configs: &[String],
 ) -> AgentReply {
     let message = request.message.trim();
     if message.is_empty() {
@@ -61,7 +62,7 @@ pub(crate) async fn respond(
     };
     let query = parsed.query.trim();
     if !query.is_empty() {
-        match tvbox.search(query).await {
+        match tvbox.search(query, tvbox_configs).await {
             Ok(Some(drama)) => {
                 if let Some(episode) = drama.first_selection() {
                     let text = if intent == Intent::Play {

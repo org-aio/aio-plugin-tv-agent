@@ -7,6 +7,7 @@ pub(crate) struct Drama {
     pub subtitle: String,
     pub synopsis: String,
     pub genre: String,
+    pub content_type: String,
     pub mood: String,
     pub duration_minutes: u16,
     pub poster: String,
@@ -33,12 +34,29 @@ pub(crate) struct CatalogQuery {
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct CatalogView {
     pub featured: Drama,
+    pub sections: Vec<CatalogSection>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub(crate) struct CatalogSection {
+    pub id: String,
+    pub title: String,
     pub items: Vec<Drama>,
 }
 
 impl Drama {
     pub(crate) fn first_selection(&self) -> Option<Episode> {
         self.episodes.first().cloned()
+    }
+
+    pub(crate) fn section_id(&self) -> &'static str {
+        match self.content_type.as_str() {
+            "movie" => "movie",
+            "anime" => "anime",
+            "variety" => "variety",
+            "short" => "short",
+            _ => "series",
+        }
     }
 }
 
@@ -57,10 +75,44 @@ pub(crate) fn catalog(query: Option<&str>) -> CatalogView {
             matched
         }
     };
+    view(items)
+}
+
+pub(crate) fn view(items: Vec<Drama>) -> CatalogView {
+    let featured = items.first().cloned().expect("目录至少包含一部演示内容");
     CatalogView {
-        featured: items[0].clone(),
-        items,
+        featured,
+        sections: sections(&items),
     }
+}
+
+fn sections(items: &[Drama]) -> Vec<CatalogSection> {
+    let mut sections = vec![CatalogSection {
+        id: "featured".into(),
+        title: "热播精选".into(),
+        items: items.to_vec(),
+    }];
+    for (id, title) in [
+        ("movie", "电影"),
+        ("anime", "动漫"),
+        ("series", "电视剧"),
+        ("variety", "综艺"),
+        ("short", "短剧速看"),
+    ] {
+        let matched = items
+            .iter()
+            .filter(|drama| drama.section_id() == id)
+            .cloned()
+            .collect::<Vec<_>>();
+        if !matched.is_empty() {
+            sections.push(CatalogSection {
+                id: id.into(),
+                title: title.into(),
+                items: matched,
+            });
+        }
+    }
+    sections
 }
 
 pub(crate) fn fallback_dramas() -> Vec<Drama> {
@@ -71,6 +123,7 @@ pub(crate) fn fallback_dramas() -> Vec<Drama> {
             subtitle: "一只兔子的反击".into(),
             synopsis: "安静的森林被三个捣蛋鬼打破，主角决定用机智守住自己的家园。轻松、明快，适合全家一起看。".into(),
             genre: "动画喜剧".into(),
+            content_type: "anime".into(),
             mood: "轻松".into(),
             duration_minutes: 1,
             poster: "assets/posters/forest-run.jpg".into(),
@@ -91,6 +144,7 @@ pub(crate) fn fallback_dramas() -> Vec<Drama> {
             subtitle: "横穿荒原的旅程".into(),
             synopsis: "一只好奇心旺盛的小羊驼踏上雪山旅程，在辽阔天地里遇见意外伙伴，也学会面对自己的胆怯。".into(),
             genre: "冒险动画".into(),
+            content_type: "anime".into(),
             mood: "治愈".into(),
             duration_minutes: 1,
             poster: "assets/posters/llama-drama.jpg".into(),
@@ -110,7 +164,8 @@ pub(crate) fn fallback_dramas() -> Vec<Drama> {
             title: "咖啡奇旅".into(),
             subtitle: "把清晨跑成一场电影".into(),
             synopsis: "咖啡、城市和一段不断加速的清晨。看似普通的一天，因为一次奔跑变成了充满想象力的旅程。".into(),
-            genre: "都市奇想".into(),
+            genre: "都市电影".into(),
+            content_type: "movie".into(),
             mood: "轻快".into(),
             duration_minutes: 1,
             poster: "assets/posters/coffee-run.jpg".into(),
@@ -150,18 +205,29 @@ mod tests {
     fn search_returns_matching_drama() {
         let view = catalog(Some("动物 治愈"));
         assert_eq!(view.featured.id, "llama-drama");
-        assert_eq!(view.items.len(), 1);
+        assert_eq!(
+            view.sections
+                .iter()
+                .find(|section| section.id == "featured")
+                .unwrap()
+                .items
+                .len(),
+            1
+        );
+        assert!(view.sections.iter().any(|section| section.id == "anime"));
     }
 
     #[test]
     fn empty_search_keeps_full_catalog() {
         let view = catalog(None);
-        assert_eq!(view.items.len(), fallback_dramas().len());
+        assert_eq!(view.sections[0].items.len(), fallback_dramas().len());
+        assert!(view.sections.iter().any(|section| section.id == "movie"));
+        assert!(view.sections.iter().any(|section| section.id == "anime"));
     }
 
     #[test]
     fn unknown_search_falls_back_to_featured_catalog() {
         let view = catalog(Some("不存在的题材"));
-        assert_eq!(view.items.len(), fallback_dramas().len());
+        assert_eq!(view.sections[0].items.len(), fallback_dramas().len());
     }
 }

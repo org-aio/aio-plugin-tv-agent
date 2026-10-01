@@ -17,13 +17,20 @@ host_version = ">=2026.9.21"
 image = "sha256:48a661b5e5f4560287dfc254e948825538d0f7a1379616495a424ed375afd31f"
 endpoints = ["https://company-ai.addzero.site/v1"]
 http_endpoints = [
-  "https://szyyds.cn/tv/x.json",
+  "https://raw.githubusercontent.com/TVboxorg/TVbox/main/dist/official.json",
+  "https://raw.githubusercontent.com/wangguo0/tvbox-sub/main/merged.json",
+  "https://raw.githubusercontent.com/ZHOUYU86/tvbox/main/b.json",
   "https://cj.lziapi.com/api.php/provide/vod",
   "https://jszyapi.com/api.php/provide/vod",
+  "https://360zy.com/api.php/provide/vod",
+  "https://ffzy.tv/api.php/provide/vod",
   "https://api.apibdzy.com/api.php/provide/vod",
   "https://bfzyapi.com/api.php/provide/vod",
   "https://www.hongniuzy2.com/api.php/provide/vod",
-  "https://api.guangsuapi.com/api.php/provide/vod"
+  "https://sub.ottiptv.cc/huyayqk.m3u",
+  "https://down.nigx.cn/raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u",
+  "https://raw.liucn.cc/box/libs/tv/tvlive.txt",
+  "https://z.szyyds.cn/iptv"
 ]
 services = []
 worker_capabilities = []

@@ -18,73 +18,87 @@
             <small id="runtime-context">正在连接</small>
           </span>
         </div>
+        <nav id="category-nav" class="category-nav" aria-label="内容分类">
+          <button class="category-pill is-active" type="button" data-focus data-action="select-category" data-category="all">全部</button>
+          <button class="category-pill" type="button" data-focus data-action="select-category" data-category="movie">电影</button>
+          <button class="category-pill" type="button" data-focus data-action="select-category" data-category="anime">动漫</button>
+          <button class="category-pill" type="button" data-focus data-action="select-category" data-category="series">电视剧</button>
+          <button class="category-pill" type="button" data-focus data-action="select-category" data-category="variety">综艺</button>
+          <button class="category-pill" type="button" data-focus data-action="select-category" data-category="short">短剧</button>
+          <button class="category-pill" type="button" data-focus data-action="select-category" data-category="live">直播</button>
+        </nav>
+        <div class="catalog-tools">
+          <p id="catalog-status" class="catalog-status">正在聚合片库……</p>
+        </div>
         <nav class="top-actions" aria-label="快捷操作">
           <button class="nav-action" type="button" data-focus data-action="voice-search">语音点播</button>
+          <button class="nav-action" type="button" data-focus data-action="open-settings">模型设置</button>
           <button class="nav-action" type="button" data-focus data-action="play-featured">继续观看</button>
         </nav>
       </header>
 
-      <section class="hero" aria-label="推荐短剧">
-        <img id="hero-poster" class="hero-poster" src="assets/posters/forest-run.jpg" alt="" />
-        <div class="hero-shade" aria-hidden="true"></div>
-        <div class="hero-content">
-          <p id="hero-kicker" class="kicker">今日推荐</p>
-          <h1 id="hero-title">森林狂奔</h1>
-          <p id="hero-synopsis" class="hero-synopsis">安静的森林被三个捣蛋鬼打破，主角决定用机智守住自己的家园。</p>
-          <div id="hero-tags" class="tag-row"></div>
-          <div class="hero-actions">
-            <button class="primary-action" type="button" data-focus data-action="play-featured">
-              <span class="action-icon" aria-hidden="true">▶</span>
-              <span>立即播放</span>
-            </button>
-            <button class="secondary-action" type="button" data-focus data-action="toggle-favorite">
-              <span class="action-icon" aria-hidden="true">＋</span>
-              <span id="favorite-label">加入片单</span>
-            </button>
+      <section class="content-board" aria-label="内容浏览与对话">
+        <section class="catalog-pane" aria-labelledby="catalog-title-left">
+          <header class="pane-heading">
+            <div>
+              <p class="section-kicker">聚合片库</p>
+              <h2 id="catalog-title-left">全部内容</h2>
+            </div>
+            <span id="catalog-count-left" class="catalog-count">0 部</span>
+          </header>
+          <div id="catalog-left" class="catalog-list" role="list"></div>
+        </section>
+
+        <section class="agent-panel" aria-labelledby="agent-title">
+          <header class="agent-panel-header">
+            <span class="agent-pulse" aria-hidden="true"></span>
+            <div>
+              <strong id="agent-title">电视 Agent</strong>
+              <p id="agent-message">可以直接说片名、题材或心情</p>
+            </div>
+          </header>
+          <div id="agent-chat" class="agent-chat" role="log" aria-live="polite">
+            <article class="chat-message is-assistant">
+              <span class="chat-role">Agent</span>
+              <p>你好，我可以帮你找电影、动漫、电视剧、综艺、短剧和直播。也可以直接说“想看点轻松搞笑的”。</p>
+            </article>
           </div>
-        </div>
-        <aside class="episode-peek" aria-label="剧集">
-          <span class="peek-label">选集</span>
-          <strong id="peek-episode">01</strong>
-          <span id="peek-duration">33 秒</span>
-        </aside>
+        </section>
+
+        <section class="catalog-pane" aria-labelledby="catalog-title-right">
+          <header class="pane-heading">
+            <div>
+              <p class="section-kicker">聚合片库</p>
+              <h2 id="catalog-title-right">全部内容</h2>
+            </div>
+            <span id="catalog-count-right" class="catalog-count">0 部</span>
+          </header>
+          <div id="catalog-right" class="catalog-list" role="list"></div>
+        </section>
       </section>
 
-      <section class="agent-console" aria-label="自然语言点播">
-        <div class="agent-heading">
-          <span class="agent-pulse" aria-hidden="true"></span>
-          <div>
-            <strong>告诉我想看什么</strong>
-            <p id="agent-message">比如“来一部治愈的动物短剧”</p>
-          </div>
-        </div>
+      <footer class="agent-dock" aria-label="自然语言搜索">
+        <div id="suggestion-row" class="suggestion-row"></div>
         <form id="agent-form" class="agent-form">
           <input
             id="agent-input"
             type="text"
             autocomplete="off"
             enterkeyhint="go"
-            placeholder="例如：我想看斗破苍穹"
-            aria-label="自然语言点播"
+            placeholder="搜索电影、动漫、短剧，或直接说出想法"
+            aria-label="自然语言搜索"
             data-focus
           />
-          <button class="send-action" type="submit" data-focus aria-label="提交点播">
+          <button class="send-action" type="submit" data-focus aria-label="提交搜索">
             <span aria-hidden="true">↗</span>
           </button>
         </form>
-        <div id="suggestion-row" class="suggestion-row"></div>
-      </section>
-
-      <section class="catalog-section" aria-label="短剧目录">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">为你挑选</p>
-            <h2 id="catalog-title">今晚值得看</h2>
-          </div>
-          <span id="catalog-count" class="catalog-count">3 部短剧</span>
-        </div>
-        <div id="catalog-row" class="catalog-row" role="list"></div>
-      </section>
+        <nav id="pagination" class="pagination" aria-label="片库分页" hidden>
+          <button id="page-prev" class="page-action" type="button" data-focus data-action="previous-page">上一页</button>
+          <span id="page-indicator" class="page-indicator">第 1 页</span>
+          <button id="page-next" class="page-action" type="button" data-focus data-action="next-page">下一页</button>
+        </nav>
+      </footer>
     </main>
 
     <section
@@ -112,6 +126,7 @@
 
     <section id="player" class="player" aria-label="播放器" hidden>
       <video id="video" playsinline preload="metadata"></video>
+      <div id="danmaku-layer" class="danmaku-layer" aria-hidden="true"></div>
       <div class="player-shade" aria-hidden="true"></div>
       <header class="player-topbar">
         <button id="player-back" class="player-back" type="button" data-focus data-action="close-player">返回</button>
@@ -122,11 +137,15 @@
       </header>
       <div class="player-controls">
         <button id="player-toggle" class="round-action" type="button" data-focus data-action="toggle-playback" aria-label="播放或暂停">暂停</button>
+        <button id="player-rewind" class="round-action" type="button" data-focus data-action="seek-backward" aria-label="后退15秒">-15秒</button>
+        <button id="player-forward" class="round-action" type="button" data-focus data-action="seek-forward" aria-label="前进15秒">+15秒</button>
         <div class="player-progress">
           <span id="player-position">00:00</span>
           <div class="progress-track" aria-hidden="true"><i id="progress-value"></i></div>
           <span id="player-duration">00:00</span>
         </div>
+        <button id="player-speed" class="round-action secondary" type="button" data-focus data-action="cycle-speed" aria-label="切换播放倍速">1.0x</button>
+        <button id="player-danmaku" class="round-action secondary" type="button" data-focus data-action="toggle-danmaku" aria-label="显示或隐藏弹幕">弹幕开</button>
         <button id="player-fullscreen" class="round-action secondary" type="button" data-focus data-action="toggle-fullscreen" aria-label="全屏">全屏</button>
       </div>
     </section>

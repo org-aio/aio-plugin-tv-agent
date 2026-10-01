@@ -2,12 +2,13 @@ mod agent_engine;
 mod ai;
 mod catalog;
 mod config;
+mod danmaku_api;
 mod settings;
 mod tvbox;
 
 use std::{env, path::PathBuf, sync::Arc};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use topcoat::{
     Result,
     context::Cx,
@@ -21,12 +22,16 @@ use topcoat::{
 };
 use tower_http::services::{ServeDir, ServeFile};
 
-use crate::{ai::AiClient, config::AppConfig, settings::SettingsStore, tvbox::TvBoxClient};
+use crate::{
+    ai::{AiClient, ModelTestRequest},
+    config::AppConfig,
+    settings::{SettingsStore, SettingsView},
+    tvbox::TvBoxClient,
+};
 
 #[derive(Clone)]
 struct AppState {
     config: AppConfig,
-    ai: AiClient,
     tvbox: TvBoxClient,
     settings: SettingsStore,
 }
@@ -35,6 +40,50 @@ struct AppState {
 struct RuntimeContext {
     tenant_id: String,
     user_id: String,
+}
+
+#[derive(Serialize)]
+struct SettingsResponse {
+    #[serde(flatten)]
+    settings: SettingsView,
+    allowed_endpoints: Vec<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct ModelListRequest {
+    model_endpoint: String,
+    #[serde(default)]
+    secret: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct DanmakuRequest {
+    title: String,
+    #[serde(default)]
+    episode: String,
+}
+
+#[derive(Deserialize)]
+struct BrowseQuery {
+    #[serde(default)]
+    category: String,
+    #[serde(default = "default_page")]
+    page: u32,
+    #[serde(default = "default_page_size")]
+    page_size: usize,
+}
+
+#[derive(Serialize)]
+struct DanmakuPage {
+    items: Vec<danmaku_api::DanmakuItem>,
+}
+
+fn default_page() -> u32 {
+    1
+}
+
+fn default_page_size() -> usize {
+    24
 }
 
 #[tokio::main]
@@ -75,21 +124,12 @@ async fn main() {
 
 async fn router() -> Router {
     let config = AppConfig::load().expect("加载电视 Agent 配置失败");
-    let ai = AiClient::new(
-        config.ai_endpoint.clone(),
-        config.ai_model.clone(),
-        config.ai_key.clone(),
-        config.broker.clone(),
-    )
-    .expect("初始化 AI 客户端失败");
-    let tvbox = TvBoxClient::new(config.tvbox_config.clone(), config.broker.clone())
-        .expect("初始化影视源客户端失败");
+    let tvbox = TvBoxClient::new(config.broker.clone()).expect("初始化影视源客户端失败");
     let settings = SettingsStore::new(config.database_url.clone(), config.encryption_key)
         .await
         .expect("初始化电视 Agent 设置失败");
     let state = Arc::new(AppState {
         config,
-        ai,
         tvbox,
         settings,
     });
@@ -110,6 +150,40 @@ async fn router() -> Router {
             ));
     }
     builder.build()
+}
+
+#[route(POST "/api/danmaku")]
+async fn danmaku_view(cx: &Cx, Json(request): Json<DanmakuRequest>) -> Result<Json<DanmakuPage>> {
+    let state = topcoat::context::app_context::<Arc<AppState>>(cx);
+    let headers = headers(cx);
+    let tenant = header(headers, "x-aio-tenant-id");
+    let user = header(headers, "x-aio-user-id");
+    let settings = state
+        .settings
+        .read(
+            &tenant,
+            &user,
+            &state.config.ai_endpoint,
+            &state.config.ai_model,
+            &state.config.tvbox_configs,
+        )
+        .await?;
+    let title = request.title.trim();
+    if title.is_empty() {
+        return Err(anyhow::anyhow!("视频标题不能为空").into());
+    }
+    if settings.danmaku_api.is_empty() {
+        return Ok(Json(DanmakuPage { items: Vec::new() }));
+    }
+    let mut items = danmaku_api::load(
+        &settings.danmaku_api,
+        title,
+        request.episode.trim(),
+        state.config.broker.clone(),
+    )
+    .await?;
+    items.sort_by(|left, right| left.time.total_cmp(&right.time));
+    Ok(Json(DanmakuPage { items }))
 }
 
 fn frontend_root() -> Option<PathBuf> {
@@ -161,8 +235,60 @@ async fn catalog_view(
     cx: &Cx,
     query: Form<catalog::CatalogQuery>,
 ) -> Result<Json<catalog::CatalogView>> {
-    let _ = cx;
-    Ok(Json(catalog::catalog(query.q.as_deref())))
+    let state = topcoat::context::app_context::<Arc<AppState>>(cx);
+    let query = query
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if let Some(query) = query {
+        let headers = headers(cx);
+        let tenant = header(headers, "x-aio-tenant-id");
+        let user = header(headers, "x-aio-user-id");
+        let settings = state
+            .settings
+            .read(
+                &tenant,
+                &user,
+                &state.config.ai_endpoint,
+                &state.config.ai_model,
+                &state.config.tvbox_configs,
+            )
+            .await?;
+        if let Ok(Some(drama)) = state.tvbox.search(query, &settings.tvbox_configs).await {
+            return Ok(Json(catalog::view(vec![drama])));
+        }
+    }
+    Ok(Json(catalog::catalog(query)))
+}
+
+#[route(GET "/api/browse")]
+async fn browse_view(cx: &Cx, query: Form<BrowseQuery>) -> Result<Json<tvbox::BrowsePage>> {
+    let state = topcoat::context::app_context::<Arc<AppState>>(cx);
+    let headers = headers(cx);
+    let tenant = header(headers, "x-aio-tenant-id");
+    let user = header(headers, "x-aio-user-id");
+    let settings = state
+        .settings
+        .read(
+            &tenant,
+            &user,
+            &state.config.ai_endpoint,
+            &state.config.ai_model,
+            &state.config.tvbox_configs,
+        )
+        .await?;
+    Ok(Json(
+        state
+            .tvbox
+            .browse(
+                &settings.tvbox_configs,
+                &query.category,
+                query.page,
+                query.page_size,
+            )
+            .await?,
+    ))
 }
 
 #[route(POST "/api/agent")]
@@ -173,49 +299,191 @@ async fn agent_reply(
     let state = topcoat::context::app_context::<Arc<AppState>>(cx);
     let user_id = header(headers(cx), "x-aio-user-id");
     let tenant_id = header(headers(cx), "x-aio-tenant-id");
-    let stored_key = if user_id.is_empty() {
-        None
-    } else {
-        state
-            .settings
-            .secret(&tenant_id, &user_id)
-            .await
-            .unwrap_or(None)
-    };
-    let ai = if stored_key.as_ref() == state.config.ai_key.as_ref() {
-        state.ai.clone()
-    } else {
-        AiClient::new(
-            state.config.ai_endpoint.clone(),
-            state.config.ai_model.clone(),
-            stored_key.or_else(|| state.config.ai_key.clone()),
-            state.config.broker.clone(),
-        )?
-    };
+    let settings = state
+        .settings
+        .runtime(
+            &tenant_id,
+            &user_id,
+            &state.config.ai_endpoint,
+            &state.config.ai_model,
+            &state.config.tvbox_configs,
+        )
+        .await?;
+    state
+        .config
+        .validate_model_endpoint(&settings.model_endpoint)?;
+    let settings_endpoint_is_default = settings.model_endpoint == state.config.ai_endpoint;
+    let default_secret = state.config.ai_key.clone();
+    let ai = AiClient::new(
+        settings.model_endpoint,
+        settings.model,
+        settings.secret.or_else(|| {
+            // 默认 Key 只属于默认地址，不能随用户自定义地址外发。
+            settings_endpoint_is_default
+                .then_some(default_secret)
+                .flatten()
+        }),
+        state.config.broker.clone(),
+    )?;
     Ok(Json(
-        agent_engine::respond(request, &ai, &state.tvbox).await,
+        agent_engine::respond(request, &ai, &state.tvbox, &settings.tvbox_configs).await,
     ))
 }
 
 #[route(GET "/api/settings")]
-async fn settings_view(cx: &Cx) -> Result<Json<settings::SettingsView>> {
+async fn settings_view(cx: &Cx) -> Result<Json<SettingsResponse>> {
     let state = topcoat::context::app_context::<Arc<AppState>>(cx);
     let headers = headers(cx);
     let tenant = header(headers, "x-aio-tenant-id");
     let user = header(headers, "x-aio-user-id");
-    Ok(Json(state.settings.read(&tenant, &user).await?))
+    let settings = state
+        .settings
+        .read(
+            &tenant,
+            &user,
+            &state.config.ai_endpoint,
+            &state.config.ai_model,
+            &state.config.tvbox_configs,
+        )
+        .await?;
+    Ok(Json(SettingsResponse {
+        settings,
+        allowed_endpoints: state.config.model_endpoints.clone(),
+    }))
 }
 
 #[route(POST "/api/settings")]
 async fn settings_save(
     cx: &Cx,
     Json(draft): Json<settings::SettingsDraft>,
-) -> Result<Json<settings::SettingsView>> {
+) -> Result<Json<SettingsResponse>> {
     let state = topcoat::context::app_context::<Arc<AppState>>(cx);
     let headers = headers(cx);
     let tenant = header(headers, "x-aio-tenant-id");
     let user = header(headers, "x-aio-user-id");
-    Ok(Json(state.settings.save(&tenant, &user, draft).await?))
+    let model_endpoint = state
+        .config
+        .validate_model_endpoint(&draft.model_endpoint)?;
+    let mut draft = draft;
+    draft.model_endpoint = model_endpoint;
+    let tvbox_configs = draft
+        .tvbox_configs
+        .take()
+        .unwrap_or_else(|| state.config.tvbox_configs.clone());
+    draft.tvbox_configs = Some(
+        tvbox_configs
+            .iter()
+            .map(|config| state.config.validate_tvbox_config(config))
+            .collect::<anyhow::Result<Vec<_>>>()?,
+    );
+    let settings = state
+        .settings
+        .save(
+            &tenant,
+            &user,
+            draft,
+            &state.config.ai_endpoint,
+            &state.config.ai_model,
+            &state.config.tvbox_configs,
+        )
+        .await?;
+    Ok(Json(SettingsResponse {
+        settings,
+        allowed_endpoints: state.config.model_endpoints.clone(),
+    }))
+}
+
+#[route(POST "/api/models")]
+async fn models(cx: &Cx, Json(draft): Json<ModelListRequest>) -> Result<Json<Vec<String>>> {
+    let state = topcoat::context::app_context::<Arc<AppState>>(cx);
+    let headers = headers(cx);
+    let tenant = header(headers, "x-aio-tenant-id");
+    let user = header(headers, "x-aio-user-id");
+    let endpoint = state
+        .config
+        .validate_model_endpoint(&draft.model_endpoint)?;
+    let saved = state
+        .settings
+        .runtime(
+            &tenant,
+            &user,
+            &state.config.ai_endpoint,
+            &state.config.ai_model,
+            &state.config.tvbox_configs,
+        )
+        .await?;
+    let secret = draft
+        .secret
+        .map(validate_secret)
+        .transpose()?
+        .flatten()
+        .or_else(|| {
+            (endpoint == saved.model_endpoint)
+                .then_some(saved.secret)
+                .flatten()
+        })
+        .or_else(|| {
+            (endpoint == state.config.ai_endpoint)
+                .then(|| state.config.ai_key.clone())
+                .flatten()
+        });
+    let ai = AiClient::new(endpoint, saved.model, secret, state.config.broker.clone())?;
+    Ok(Json(ai.list_models(None).await?))
+}
+
+#[route(POST "/api/models/test")]
+async fn model_test(
+    cx: &Cx,
+    Json(draft): Json<ModelTestRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let state = topcoat::context::app_context::<Arc<AppState>>(cx);
+    let headers = headers(cx);
+    let tenant = header(headers, "x-aio-tenant-id");
+    let user = header(headers, "x-aio-user-id");
+    let endpoint = state
+        .config
+        .validate_model_endpoint(&draft.model_endpoint)?;
+    let model = draft.model.trim();
+    if model.is_empty() || model.len() > 160 {
+        return Err(anyhow::anyhow!("模型名格式无效").into());
+    }
+    let saved = state
+        .settings
+        .runtime(
+            &tenant,
+            &user,
+            &state.config.ai_endpoint,
+            &state.config.ai_model,
+            &state.config.tvbox_configs,
+        )
+        .await?;
+    let secret = draft
+        .secret
+        .map(validate_secret)
+        .transpose()?
+        .flatten()
+        .or_else(|| {
+            (endpoint == saved.model_endpoint)
+                .then_some(saved.secret)
+                .flatten()
+        })
+        .or_else(|| {
+            (endpoint == state.config.ai_endpoint)
+                .then(|| state.config.ai_key.clone())
+                .flatten()
+        });
+    let ai = AiClient::new(
+        endpoint.clone(),
+        model.to_owned(),
+        secret,
+        state.config.broker.clone(),
+    )?;
+    ai.test_connection(None).await?;
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "model_endpoint": endpoint,
+        "model": model,
+    })))
 }
 
 #[route(GET "/api/context")]
@@ -233,6 +501,17 @@ fn header(headers: &topcoat::router::HeaderMap, name: &str) -> String {
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default()
         .to_owned()
+}
+
+fn validate_secret(secret: String) -> Result<Option<String>> {
+    let secret = secret.trim();
+    if secret.is_empty() {
+        return Ok(None);
+    }
+    if secret.len() > 8192 || secret.contains(['\r', '\n']) {
+        return Err(anyhow::anyhow!("AI Key 格式无效").into());
+    }
+    Ok(Some(secret.to_owned()))
 }
 
 #[cfg(test)]

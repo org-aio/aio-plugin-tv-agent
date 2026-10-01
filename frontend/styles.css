@@ -1,5 +1,7 @@
 :root {
   --accent: #d7ff64;
+  --tv-gutter-x: clamp(28px, 4vw, 96px);
+  --tv-gutter-y: clamp(16px, 2.4vh, 42px);
   color: #f6f7f2;
   background: #070b0d;
   font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
@@ -12,6 +14,8 @@
 
 html,
 body {
+  scroll-padding-top: 34px;
+  scroll-padding-bottom: 52px;
   min-width: 320px;
   min-height: 100%;
   margin: 0;
@@ -20,6 +24,7 @@ body {
 
 body {
   min-height: 100vh;
+  overscroll-behavior: none;
   background:
     linear-gradient(180deg, #070b0d 0%, #0b1214 46%, #060809 100%);
 }
@@ -53,17 +58,21 @@ input:focus {
 }
 
 .tv-shell {
-  width: min(1760px, 100%);
+  width: min(3400px, 100%);
   margin: 0 auto;
-  padding: 22px clamp(24px, 4vw, 72px) 72px;
+  padding:
+    calc(var(--tv-gutter-y) + env(safe-area-inset-top))
+    calc(var(--tv-gutter-x) + env(safe-area-inset-right))
+    calc(var(--tv-gutter-y) + 30px + env(safe-area-inset-bottom))
+    calc(var(--tv-gutter-x) + env(safe-area-inset-left));
 }
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 58px;
-  margin-bottom: 18px;
+  min-height: clamp(46px, 5.4vh, 62px);
+  margin-bottom: clamp(10px, 1.5vh, 18px);
 }
 
 .brand {
@@ -123,7 +132,8 @@ input:focus {
 
 .hero {
   position: relative;
-  min-height: clamp(350px, 40vw, 560px);
+  height: clamp(310px, 43vh, 620px);
+  min-height: 0;
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 12%);
   border-radius: 8px;
@@ -145,18 +155,18 @@ input:focus {
 
 .hero-shade {
   background:
-    linear-gradient(90deg, rgb(5 8 9 / 96%) 0%, rgb(5 8 9 / 79%) 42%, rgb(5 8 9 / 14%) 74%),
-    linear-gradient(0deg, rgb(5 8 9 / 64%), transparent 48%);
+    linear-gradient(90deg, rgb(5 8 9 / 98%) 0%, rgb(5 8 9 / 94%) 44%, rgb(5 8 9 / 68%) 66%, rgb(5 8 9 / 10%) 90%),
+    linear-gradient(0deg, rgb(5 8 9 / 70%), transparent 52%);
 }
 
 .hero-content {
   position: relative;
   display: flex;
-  width: min(710px, 62%);
+  width: min(760px, 58%);
   min-height: inherit;
   flex-direction: column;
   justify-content: center;
-  padding: clamp(42px, 5.4vw, 92px);
+  padding: clamp(24px, 4vh, 76px);
 }
 
 .kicker,
@@ -169,25 +179,25 @@ input:focus {
 }
 
 .hero h1 {
-  margin: 12px 0 12px;
-  font-size: clamp(42px, 5.4vw, 88px);
+  margin: clamp(8px, 1.2vh, 12px) 0;
+  font-size: clamp(34px, 4.2vw, 76px);
   line-height: .98;
   letter-spacing: 0;
 }
 
 .hero-synopsis {
-  max-width: 610px;
+  max-width: 640px;
   margin: 0;
   color: #c7d0cc;
-  font-size: clamp(15px, 1.35vw, 20px);
-  line-height: 1.72;
+  font-size: clamp(14px, 1.15vw, 19px);
+  line-height: 1.62;
 }
 
 .tag-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 20px 0 24px;
+  margin: clamp(12px, 1.8vh, 20px) 0 clamp(14px, 2.1vh, 24px);
 }
 
 .tag {
@@ -202,7 +212,7 @@ input:focus {
 .primary-action,
 .secondary-action {
   display: inline-flex;
-  min-height: 52px;
+  min-height: clamp(44px, 5.4vh, 54px);
   align-items: center;
   gap: 9px;
   padding: 0 24px;
@@ -224,8 +234,8 @@ input:focus {
 
 .episode-peek {
   position: absolute;
-  right: 38px;
-  bottom: 34px;
+  right: clamp(24px, 3vw, 54px);
+  bottom: clamp(22px, 3.2vh, 40px);
   display: grid;
   min-width: 94px;
   justify-items: end;
@@ -234,7 +244,7 @@ input:focus {
 }
 
 .episode-peek strong {
-  font-size: 38px;
+  font-size: clamp(30px, 2.3vw, 44px);
   line-height: 1;
 }
 
@@ -246,14 +256,14 @@ input:focus {
 
 .agent-console {
   display: grid;
-  grid-template-columns: minmax(240px, .7fr) minmax(320px, 1.3fr);
-  gap: 18px 28px;
+  grid-template-columns: minmax(220px, .66fr) minmax(340px, 1.34fr);
+  gap: clamp(10px, 1.5vh, 18px) clamp(18px, 2vw, 30px);
   align-items: center;
-  margin: 22px 0 38px;
+  margin: clamp(12px, 2vh, 28px) 0 clamp(18px, 3vh, 40px);
   border: 1px solid rgb(255 255 255 / 10%);
   border-radius: 8px;
   background: linear-gradient(135deg, rgb(20 30 30 / 94%), rgb(10 15 16 / 94%));
-  padding: 22px 24px;
+  padding: clamp(11px, 1.7vh, 24px) clamp(16px, 1.8vw, 28px);
 }
 
 .agent-heading {
@@ -291,7 +301,7 @@ input:focus {
 
 .agent-form input {
   min-width: 0;
-  min-height: 52px;
+  min-height: clamp(44px, 5.4vh, 56px);
   border: 1px solid rgb(255 255 255 / 12%);
   border-radius: 13px;
   background: rgb(0 0 0 / 23%);
@@ -305,7 +315,7 @@ input:focus {
 
 .send-action {
   min-width: 48px;
-  min-height: 48px;
+  min-height: clamp(44px, 5.4vh, 52px);
   border: 0;
   border-radius: 13px;
   background: #d7ff64;
@@ -332,16 +342,83 @@ input:focus {
   cursor: pointer;
 }
 
-.section-heading {
+.category-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: clamp(12px, 2vh, 26px) 0 6px;
+}
+
+.category-pill {
+  min-height: clamp(38px, 5vh, 48px);
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 999px;
+  background: rgb(13 20 21 / 82%);
+  padding: 0 20px;
+  color: #aeb9b5;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.category-pill.is-active {
+  border-color: rgb(215 255 100 / 58%);
+  background: rgb(215 255 100 / 12%);
+  color: #d7ff64;
+}
+
+.catalog-sections {
+  display: grid;
+  gap: clamp(20px, 3vh, 34px);
+}
+
+.catalog-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: clamp(18px, 2.8vh, 32px);
+  border-top: 1px solid rgb(255 255 255 / 10%);
+  padding-top: clamp(16px, 2.4vh, 26px);
+}
+
+.catalog-status {
+  margin: 0;
+  color: #8d9a95;
+  font-size: 14px;
+}
+
+.catalog-more .secondary-action {
+  min-width: 138px;
+  border: 1px solid rgb(215 255 100 / 34%);
+  border-radius: 999px;
+  background: rgb(215 255 100 / 10%);
+  color: #d7ff64;
+  cursor: pointer;
+}
+
+.catalog-more .secondary-action:disabled {
+  border-color: rgb(255 255 255 / 10%);
+  background: rgb(255 255 255 / 4%);
+  color: #68736f;
+  cursor: default;
+}
+
+.catalog-shelf {
+  min-width: 0;
+}
+
+.shelf-heading {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  margin-bottom: 16px;
+  gap: 20px;
+  margin-bottom: 14px;
 }
 
-.section-heading h2 {
+.shelf-heading h2 {
   margin: 7px 0 0;
-  font-size: clamp(24px, 2.2vw, 34px);
+  font-size: clamp(22px, 2.1vw, 36px);
   letter-spacing: 0;
 }
 
@@ -351,13 +428,11 @@ input:focus {
 }
 
 .catalog-row {
-  display: grid;
-  grid-auto-columns: minmax(245px, 1fr);
-  grid-auto-flow: column;
-  gap: 18px;
+  display: flex;
+  gap: clamp(14px, 1.4vw, 22px);
   overflow-x: auto;
-  padding: 10px 2px 18px;
-  scrollbar-width: none;
+  padding: 10px 4px 20px;
+  scrollbar-color: #4f5d58 #0a0f10;
   scroll-snap-type: x proximity;
 }
 
@@ -367,7 +442,9 @@ input:focus {
 
 .drama-card {
   position: relative;
-  min-height: 238px;
+  aspect-ratio: 16 / 9;
+  width: clamp(220px, min(18vw, 29vh), 420px);
+  flex: 0 0 auto;
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 10%);
   border-radius: 8px;
@@ -376,6 +453,7 @@ input:focus {
   text-align: left;
   cursor: pointer;
   scroll-snap-align: start;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
 .drama-card img,
@@ -402,14 +480,20 @@ input:focus {
 
 .card-copy strong {
   display: block;
+  overflow: hidden;
   font-size: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-copy span {
   display: block;
+  overflow: hidden;
   margin-top: 5px;
   color: #aeb9b5;
   font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-index {
@@ -424,6 +508,193 @@ input:focus {
   font-weight: 800;
 }
 
+@media (min-width: 2400px) {
+  .tv-shell {
+    padding-right: clamp(72px, 5vw, 160px);
+    padding-left: clamp(72px, 5vw, 160px);
+  }
+
+  .drama-card {
+    width: clamp(360px, 18vw, 520px);
+  }
+
+  .catalog-row {
+    gap: 22px;
+  }
+}
+
+@media (min-width: 700px) and (max-height: 760px) {
+  .tv-shell {
+    --tv-gutter-y: 14px;
+    --tv-gutter-x: clamp(24px, 3.4vw, 50px);
+  }
+
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
+  .brand-copy strong {
+    font-size: 16px;
+  }
+
+  .topbar {
+    min-height: 42px;
+    margin-bottom: 10px;
+  }
+
+  .nav-action,
+  .secondary-action,
+  .round-action,
+  .player-back {
+    min-height: 40px;
+    padding: 0 16px;
+    font-size: 14px;
+  }
+
+  .hero {
+    height: clamp(286px, 46vh, 340px);
+  }
+
+  .hero-content {
+    width: min(680px, 62%);
+    padding: 24px 30px;
+  }
+
+  .hero h1 {
+    margin: 7px 0;
+    font-size: clamp(34px, 4vw, 48px);
+  }
+
+  .hero-synopsis {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .tag-row {
+    margin: 10px 0 12px;
+  }
+
+  .tag {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .primary-action,
+  .secondary-action {
+    min-height: 42px;
+    padding: 0 18px;
+    font-size: 14px;
+  }
+
+  .agent-console {
+    margin: 10px 0 14px;
+    padding: 10px 16px;
+  }
+
+  .agent-heading strong {
+    font-size: 15px;
+  }
+
+  .agent-heading p,
+  .suggestion {
+    font-size: 12px;
+  }
+
+  .agent-form input {
+    min-height: 42px;
+  }
+
+  .send-action {
+    min-height: 42px;
+  }
+
+  .suggestion-row {
+    margin-top: 0;
+  }
+
+  .suggestion {
+    min-height: 34px;
+  }
+
+  .category-nav {
+    margin: 10px 0 2px;
+  }
+
+  .category-pill {
+    min-height: 36px;
+    padding: 0 16px;
+    font-size: 13px;
+  }
+
+  .catalog-sections {
+    gap: 18px;
+  }
+
+  .catalog-more {
+    margin-top: 14px;
+    padding-top: 14px;
+  }
+
+  .shelf-heading {
+    margin-bottom: 8px;
+  }
+
+  .shelf-heading h2 {
+    margin-top: 4px;
+    font-size: 24px;
+  }
+
+  .catalog-row {
+    padding-bottom: 12px;
+  }
+
+  .drama-card {
+    width: clamp(220px, 25vw, 300px);
+  }
+
+  .episode-picker {
+    padding: 18px;
+  }
+
+  .episode-dialog {
+    max-height: min(90vh, 620px);
+  }
+
+  .episode-dialog-header {
+    padding: 15px 18px;
+  }
+
+  .episode-dialog-header h2 {
+    font-size: 24px;
+  }
+
+  .episode-list {
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+    gap: 8px;
+    padding: 14px 18px 18px;
+  }
+
+  .episode-option {
+    min-height: 54px;
+  }
+
+  .player-topbar,
+  .player-controls {
+    padding: 18px 24px;
+  }
+
+  .player-controls {
+    padding-bottom: 22px;
+  }
+}
+
 .player {
   position: fixed;
   inset: 0;
@@ -432,6 +703,7 @@ input:focus {
 }
 
 .player video,
+.danmaku-layer,
 .player-shade {
   position: absolute;
   inset: 0;
@@ -440,7 +712,67 @@ input:focus {
 }
 
 .player video {
+  background: #000;
   object-fit: contain;
+}
+
+.player video.is-portrait {
+  object-fit: contain;
+  padding: 0 max(2vw, 16px);
+  box-sizing: border-box;
+}
+
+.danmaku-layer {
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.danmaku-item {
+  position: absolute;
+  left: 100%;
+  max-width: 76%;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgb(0 0 0 / 52%);
+  text-shadow:
+    -2px -2px 0 #000,
+    2px -2px 0 #000,
+    -2px 2px 0 #000,
+    2px 2px 0 #000;
+  font-size: clamp(18px, 2vw, 28px);
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+  animation: danmaku-scroll linear forwards;
+  will-change: transform;
+}
+
+.danmaku-item.is-fixed {
+  left: 50%;
+  background: rgb(0 0 0 / 62%);
+  transform: translateX(-50%);
+  animation-name: danmaku-fixed;
+}
+
+.danmaku-item.is-fixed.is-bottom {
+  top: auto !important;
+  bottom: 12%;
+}
+
+@keyframes danmaku-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-100vw - 100%)); }
+}
+
+@keyframes danmaku-fixed {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+  8%, 92% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(4px); }
+}
+
+.player.is-danmaku-hidden .danmaku-layer {
+  display: none;
 }
 
 .player-shade {
@@ -688,6 +1020,15 @@ input:focus {
 @media (max-width: 640px) {
   .topbar {
     align-items: flex-start;
+    gap: 10px;
+  }
+
+  .brand {
+    flex: 0 0 auto;
+  }
+
+  .brand-copy {
+    display: none;
   }
 
   .top-actions {
@@ -702,6 +1043,11 @@ input:focus {
 
   .hero {
     min-height: 460px;
+  }
+
+  .hero-shade {
+    background:
+      linear-gradient(180deg, rgb(5 8 9 / 8%) 0%, rgb(5 8 9 / 44%) 38%, rgb(5 8 9 / 96%) 76%, #050809 100%);
   }
 
   .hero-content {
@@ -733,7 +1079,21 @@ input:focus {
   }
 
   .catalog-row {
-    grid-auto-columns: minmax(215px, 82vw);
+    gap: 12px;
+  }
+
+  .drama-card {
+    width: min(78vw, 320px);
+  }
+
+  .category-nav {
+    gap: 7px;
+  }
+
+  .category-pill {
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 13px;
   }
 
   .player-topbar,
@@ -749,5 +1109,671 @@ input:focus {
   .round-action {
     min-width: 58px;
     padding: 0 12px;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 960px) and (max-height: 760px) {
+  .tv-shell {
+    padding: 14px 20px 44px;
+  }
+
+  .hero {
+    height: clamp(286px, 46vh, 340px);
+    min-height: 0;
+  }
+
+  .hero-content {
+    width: min(680px, 72%);
+    padding: 24px 30px;
+  }
+
+  .agent-console {
+    grid-template-columns: minmax(190px, .7fr) minmax(300px, 1.3fr);
+    gap: 10px 18px;
+    margin: 10px 0 14px;
+    padding: 10px 16px;
+  }
+
+  .suggestion-row {
+    grid-column: 2;
+  }
+
+  .drama-card {
+    width: clamp(220px, 25vw, 280px);
+  }
+}
+
+@media (min-width: 1000px) and (orientation: landscape) {
+  .tv-shell {
+    --tv-gutter-y: clamp(14px, 1.8vh, 30px);
+    --tv-gutter-x: clamp(30px, 3.4vw, 92px);
+    display: grid;
+    grid-template-areas:
+      "topbar topbar"
+      "hero agent"
+      "category category"
+      "catalog catalog";
+    grid-template-columns: minmax(0, 1.72fr) minmax(340px, .78fr);
+    align-items: stretch;
+    gap: clamp(8px, 1.2vh, 16px) clamp(14px, 1.5vw, 28px);
+  }
+
+  .topbar {
+    grid-area: topbar;
+    min-height: clamp(40px, 4.4vh, 52px);
+    margin-bottom: 0;
+  }
+
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
+  .brand-copy strong {
+    font-size: 16px;
+  }
+
+  .nav-action,
+  .secondary-action,
+  .round-action,
+  .player-back {
+    min-height: 40px;
+    padding: 0 17px;
+    font-size: 14px;
+  }
+
+  .hero {
+    grid-area: hero;
+    height: clamp(208px, 26vh, 330px);
+    box-shadow: 0 18px 52px rgb(0 0 0 / 34%);
+  }
+
+  .hero-content {
+    width: min(760px, 88%);
+    padding: clamp(18px, 2.4vh, 30px) clamp(22px, 2.4vw, 42px);
+  }
+
+  .hero h1 {
+    margin: 7px 0;
+    font-size: clamp(32px, 3.4vw, 58px);
+  }
+
+  .hero-synopsis {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: clamp(13px, .95vw, 17px);
+    line-height: 1.5;
+  }
+
+  .tag-row {
+    margin: 8px 0 10px;
+  }
+
+  .tag {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .primary-action,
+  .secondary-action {
+    min-height: 40px;
+    padding-right: 19px;
+    padding-left: 19px;
+    font-size: 14px;
+  }
+
+  .episode-peek {
+    right: clamp(18px, 2vw, 34px);
+    bottom: clamp(16px, 2vh, 26px);
+  }
+
+  .agent-console {
+    grid-area: agent;
+    grid-template-columns: 1fr;
+    align-content: center;
+    gap: 9px;
+    margin: 0;
+    padding: clamp(14px, 1.8vh, 22px) clamp(16px, 1.5vw, 24px);
+  }
+
+  .agent-heading strong {
+    font-size: 15px;
+  }
+
+  .agent-heading p {
+    font-size: 12px;
+  }
+
+  .agent-form {
+    grid-template-columns: 1fr 46px;
+    gap: 8px;
+  }
+
+  .agent-form input,
+  .send-action {
+    min-height: 42px;
+  }
+
+  .suggestion-row {
+    grid-column: 1;
+    gap: 7px;
+    margin-top: 0;
+  }
+
+  .suggestion {
+    min-height: 32px;
+    padding: 0 11px;
+    font-size: 12px;
+  }
+
+  .category-nav {
+    grid-area: category;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin: 0;
+    overflow-x: auto;
+  }
+
+  .category-pill {
+    min-height: 36px;
+    padding: 0 16px;
+    font-size: 13px;
+  }
+
+  .catalog-section {
+    grid-area: catalog;
+    min-width: 0;
+  }
+
+  .catalog-sections {
+    gap: 18px;
+  }
+
+  .shelf-heading {
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .shelf-heading h2 {
+    margin-top: 3px;
+    font-size: clamp(22px, 1.8vw, 32px);
+  }
+
+  .catalog-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(clamp(220px, 14vw, 420px), 1fr));
+    gap: clamp(10px, 1vw, 16px);
+    overflow: visible;
+    padding: 8px 4px 12px;
+    scroll-snap-type: none;
+  }
+
+  .drama-card {
+    width: 100%;
+    scroll-snap-align: none;
+  }
+
+  .card-copy {
+    inset: auto 14px 13px;
+  }
+
+  .card-copy strong {
+    font-size: 17px;
+  }
+
+  .card-copy span {
+    margin-top: 3px;
+    font-size: 12px;
+  }
+
+  .catalog-more {
+    margin-top: 14px;
+    padding-top: 14px;
+  }
+}
+
+/* 电视首页：左右片库一览，中间保留对话，搜索固定在底部中央。 */
+.tv-shell {
+  display: grid;
+  grid-template-areas: none;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: clamp(8px, 1.1vh, 14px);
+  height: 100vh;
+  overflow: hidden;
+  padding-bottom: calc(176px + env(safe-area-inset-bottom));
+}
+
+.topbar {
+  grid-area: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(10px, 1vw, 18px);
+  margin-bottom: 0;
+}
+
+.topbar .brand {
+  margin-right: auto;
+}
+
+.topbar .top-actions {
+  margin-left: auto;
+}
+
+.category-nav {
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.category-nav::-webkit-scrollbar,
+.catalog-list::-webkit-scrollbar,
+.agent-chat::-webkit-scrollbar {
+  display: none;
+}
+
+.category-pill {
+  min-height: 38px;
+  padding: 0 17px;
+  font-size: 13px;
+}
+
+.catalog-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.catalog-tools .catalog-status {
+  max-width: 270px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-tools .secondary-action {
+  min-height: 38px;
+  padding: 0 17px;
+  font-size: 13px;
+}
+
+.content-board {
+  grid-area: auto;
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1.18fr) minmax(330px, .86fr) minmax(0, 1.18fr);
+  gap: clamp(12px, 1.2vw, 22px);
+}
+
+.catalog-pane,
+.agent-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 8px;
+  background: rgb(10 16 17 / 78%);
+}
+
+.catalog-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 14px;
+}
+
+.pane-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
+  padding: 0 2px 11px;
+}
+
+.pane-heading h2 {
+  margin: 3px 0 0;
+  font-size: clamp(20px, 1.5vw, 28px);
+  line-height: 1.1;
+}
+
+.catalog-count {
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+
+.catalog-list {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 7px;
+  overflow-y: auto;
+  padding: 11px 2px 2px;
+  scrollbar-width: none;
+}
+
+.drama-card {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 58px;
+  aspect-ratio: auto;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 3%);
+  padding: 7px 9px;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.drama-card:hover,
+.drama-card.is-focused {
+  border-color: rgb(215 255 100 / 48%);
+  background: rgb(215 255 100 / 8%);
+  transform: translateX(3px);
+}
+
+.drama-card .card-poster {
+  position: static;
+  width: 72px;
+  height: 42px;
+  grid-row: auto;
+  inset: auto;
+  border-radius: 5px;
+  object-fit: cover;
+  background: #111819;
+  transform: none;
+}
+
+.drama-card.is-focused .card-poster {
+  transform: none;
+}
+
+.card-index {
+  position: absolute;
+  top: 5px;
+  left: 61px;
+  display: grid;
+  width: 25px;
+  height: 18px;
+  place-items: center;
+  border-radius: 4px;
+  background: rgb(4 8 9 / 88%);
+  padding: 0;
+  color: #d7ff64;
+  font-size: 9px;
+}
+
+.card-copy {
+  position: relative;
+  inset: auto;
+  min-width: 0;
+}
+
+.card-copy strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.card-copy span {
+  margin-top: 3px;
+  font-size: 11px;
+}
+
+.card-meta {
+  display: none;
+}
+
+.catalog-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #8d9a95;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.agent-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background:
+    linear-gradient(180deg, rgb(20 31 30 / 94%), rgb(8 13 14 / 94%));
+}
+
+.agent-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
+  padding: 16px 18px 14px;
+}
+
+.agent-panel-header strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 16px;
+}
+
+.agent-panel-header p {
+  margin: 0;
+  color: #8e9b97;
+  font-size: 12px;
+}
+
+.agent-chat {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 11px;
+  overflow-y: auto;
+  padding: 16px 18px 18px;
+  scrollbar-width: none;
+}
+
+.chat-message {
+  width: min(92%, 520px);
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 4%);
+  padding: 11px 13px;
+}
+
+.chat-message.is-user {
+  align-self: flex-end;
+  border-color: rgb(215 255 100 / 24%);
+  background: rgb(215 255 100 / 10%);
+}
+
+.chat-message.is-assistant {
+  align-self: flex-start;
+}
+
+.chat-role {
+  display: block;
+  margin-bottom: 5px;
+  color: #d7ff64;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.chat-message p {
+  margin: 0;
+  color: #dbe3df;
+  font-size: 13px;
+  line-height: 1.62;
+}
+
+.agent-dock {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 20;
+  grid-area: auto;
+  display: grid;
+  width: min(760px, 52vw);
+  gap: 8px;
+  transform: translateX(-50%);
+}
+
+.agent-dock .suggestion-row {
+  display: flex;
+  grid-column: auto;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  margin: 0;
+}
+
+.agent-dock .suggestion {
+  min-height: 32px;
+  padding: 0 12px;
+  background: rgb(9 15 16 / 92%);
+  font-size: 12px;
+}
+
+.agent-dock .agent-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 50px;
+  gap: 8px;
+  border: 1px solid rgb(215 255 100 / 34%);
+  border-radius: 15px;
+  background: rgb(7 12 13 / 96%);
+  padding: 6px;
+  box-shadow: 0 18px 54px rgb(0 0 0 / 58%);
+}
+
+.agent-dock .agent-form input {
+  min-height: 48px;
+  border: 0;
+  background: transparent;
+  padding: 0 14px;
+  font-size: 15px;
+}
+
+.agent-dock .send-action {
+  min-width: 50px;
+  min-height: 48px;
+  border-radius: 11px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.page-action {
+  min-width: 78px;
+  min-height: 32px;
+  border: 1px solid rgb(255 255 255 / 13%);
+  border-radius: 999px;
+  background: rgb(9 15 16 / 92%);
+  padding: 0 14px;
+  color: #dbe3df;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.page-action:disabled {
+  border-color: rgb(255 255 255 / 7%);
+  color: #59635f;
+  cursor: default;
+}
+
+.page-indicator {
+  min-width: 76px;
+  color: #d7ff64;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+@media (max-width: 1100px) {
+  .content-board {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, .82fr) minmax(0, 1fr);
+  }
+
+  .catalog-list {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-dock {
+    width: min(680px, 62vw);
+  }
+
+  .drama-card {
+    grid-template-columns: 62px minmax(0, 1fr);
+  }
+
+  .drama-card .card-poster {
+    width: 62px;
+    height: 38px;
+  }
+
+  .card-index {
+    left: 51px;
+  }
+}
+
+@media (max-width: 900px) {
+  .tv-shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    padding-bottom: 162px;
+  }
+
+  .topbar {
+    justify-content: flex-start;
+  }
+
+  .topbar .brand,
+  .topbar .top-actions {
+    margin: 0;
+  }
+
+  .content-board {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-panel {
+    order: -1;
+    min-height: 360px;
+  }
+
+  .catalog-pane {
+    max-height: 70vh;
+  }
+
+  .catalog-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .agent-dock {
+    width: calc(100% - 32px);
+  }
+}
+
+@media (max-width: 560px) {
+  .catalog-list {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-dock .suggestion-row {
+    display: none;
   }
 }

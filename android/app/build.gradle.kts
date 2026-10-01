@@ -25,17 +25,7 @@ android {
         buildConfigField(
             "String",
             "AI_MODEL",
-            "\"${providers.gradleProperty("tvAgentAiModel").orElse("cn:fast-model").get()}\""
-        )
-        buildConfigField(
-            "String",
-            "AI_KEY",
-            "\"${providers.gradleProperty("tvAgentAiKey").orElse(providers.environmentVariable("AIO_TV_AGENT_AI_KEY").orElse("").get()).get()}\""
-        )
-        buildConfigField(
-            "String",
-            "TVBOX_CONFIG",
-            "\"${providers.gradleProperty("tvAgentTvboxConfig").orElse("https://szyyds.cn/tv/x.json").get()}\""
+            "\"${providers.gradleProperty("tvAgentAiModel").orElse("auto").get()}\""
         )
     }
 

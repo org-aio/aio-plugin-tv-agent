@@ -2,11 +2,12 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, ensure};
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{catalog, config::BrokerConfig};
 
 const SYSTEM_PROMPT: &str = "你是电视点播意图解析器。只输出 JSON 对象，格式为 {\"query\":\"用户要搜索的片名或题材\",\"intent\":\"play|search|recommend\"}。去掉“我想看、播放、打开、来一部”等口语，只保留可检索的片名或题材。不要输出 Markdown，不要解释。";
+const INTENT_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone)]
 pub(crate) struct AiClient {
@@ -61,10 +62,11 @@ impl AiClient {
             ]
         });
         let response = if let Some(broker) = &self.broker {
+            self.ensure_authorized_endpoint(&self.endpoint)?;
             self.client
                 .post("http://localhost/egress")
                 .header("x-aio-token", &broker.token)
-                .header("x-aio-endpoint", &broker.model_endpoint)
+                .header("x-aio-endpoint", &self.endpoint)
                 .bearer_auth(key)
                 .json(&payload)
                 .send()
@@ -91,12 +93,137 @@ impl AiClient {
         };
         parse_chat_response(&bytes)
     }
+
+    pub(crate) async fn list_models(&self, secret: Option<&str>) -> Result<Vec<String>> {
+        let key = secret
+            .or(self.key.as_deref())
+            .filter(|value| !value.trim().is_empty());
+        let response = if let Some(broker) = &self.broker {
+            self.ensure_authorized_endpoint(&self.endpoint)?;
+            let mut request = self
+                .client
+                .get("http://localhost/egress/models")
+                .header("x-aio-token", &broker.token)
+                .header("x-aio-endpoint", &self.endpoint);
+            if let Some(key) = key {
+                request = request.bearer_auth(key);
+            }
+            request.send().await.context("读取模型列表失败")?
+        } else {
+            let mut request = self.client.get(format!("{}/models", self.endpoint));
+            if let Some(key) = key {
+                request = request.bearer_auth(key);
+            }
+            request.send().await.context("读取模型列表失败")?
+        };
+        ensure!(
+            response.status().is_success(),
+            "模型列表返回 HTTP {}",
+            response.status().as_u16()
+        );
+        let bytes = limited_bytes(response, 2 * 1024 * 1024).await?;
+        let catalog: ModelCatalog = serde_json::from_slice(&bytes).context("模型列表格式无效")?;
+        let mut models = catalog
+            .data
+            .into_iter()
+            .map(|model| model.id.trim().to_owned())
+            .filter(|id| !id.is_empty() && id.len() <= 160)
+            .collect::<Vec<_>>();
+        models.sort();
+        models.dedup();
+        Ok(models)
+    }
+
+    pub(crate) async fn test_connection(&self, secret: Option<&str>) -> Result<()> {
+        let key = secret
+            .or(self.key.as_deref())
+            .filter(|value| !value.trim().is_empty())
+            .context("未配置 AI Key")?;
+        let payload = serde_json::json!({
+            "model": self.model,
+            "stream": false,
+            "temperature": 0,
+            "max_tokens": 8,
+            "messages": [
+                {"role": "user", "content": "只回复 OK"}
+            ]
+        });
+        let response = if let Some(broker) = &self.broker {
+            self.ensure_authorized_endpoint(&self.endpoint)?;
+            self.client
+                .post("http://localhost/egress")
+                .header("x-aio-token", &broker.token)
+                .header("x-aio-endpoint", &self.endpoint)
+                .bearer_auth(key)
+                .json(&payload)
+                .send()
+                .await
+                .context("模型连接测试失败")?
+        } else {
+            self.client
+                .post(format!("{}/chat/completions", self.endpoint))
+                .bearer_auth(key)
+                .json(&payload)
+                .send()
+                .await
+                .context("模型连接测试失败")?
+        };
+        ensure!(
+            response.status().is_success(),
+            "模型连接测试返回 HTTP {}",
+            response.status().as_u16()
+        );
+        let bytes = limited_bytes(response, 2 * 1024 * 1024).await?;
+        let value: serde_json::Value =
+            serde_json::from_slice(&bytes).context("模型响应格式无效")?;
+        ensure!(
+            value["choices"]
+                .as_array()
+                .is_some_and(|choices| !choices.is_empty()),
+            "模型没有返回推理结果"
+        );
+        Ok(())
+    }
+
+    fn ensure_authorized_endpoint(&self, endpoint: &str) -> Result<()> {
+        let Some(broker) = &self.broker else {
+            return Ok(());
+        };
+        ensure!(
+            broker
+                .model_endpoints
+                .iter()
+                .any(|allowed| allowed == endpoint),
+            "模型地址未被 AIO 授权"
+        );
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelCatalog {
+    #[serde(default)]
+    data: Vec<ModelInfo>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelInfo {
+    id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct ModelTestRequest {
+    pub model_endpoint: String,
+    pub model: String,
+    #[serde(default)]
+    pub secret: Option<String>,
 }
 
 pub(crate) async fn understand(message: &str, ai: &AiClient) -> Result<ParsedIntent> {
-    match ai.parse(message).await {
-        Ok(parsed) => return Ok(parsed),
-        Err(error) => eprintln!("AI 意图解析失败，使用规则解析: {error:#}"),
+    match tokio::time::timeout(INTENT_TIMEOUT, ai.parse(message)).await {
+        Ok(Ok(parsed)) => return Ok(parsed),
+        Ok(Err(error)) => eprintln!("AI 意图解析失败，使用规则解析: {error:#}"),
+        Err(_) => eprintln!("AI 意图解析超时，使用规则解析"),
     }
     let fallback = catalog::fallback_dramas()
         .into_iter()
@@ -182,13 +309,14 @@ fn parse_chat_response(bytes: &[u8]) -> Result<ParsedIntent> {
     Ok(parsed)
 }
 
-async fn read_stream_response(mut response: reqwest::Response) -> Result<Vec<u8>> {
+async fn read_stream_response(response: reqwest::Response) -> Result<Vec<u8>> {
+    limited_bytes(response, 2 * 1024 * 1024).await
+}
+
+async fn limited_bytes(mut response: reqwest::Response, limit: usize) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     while let Some(chunk) = response.chunk().await? {
-        ensure!(
-            bytes.len() + chunk.len() <= 2 * 1024 * 1024,
-            "AI 响应超过配额"
-        );
+        ensure!(bytes.len() + chunk.len() <= limit, "AI 响应超过配额");
         bytes.extend_from_slice(&chunk);
     }
     Ok(bytes)
