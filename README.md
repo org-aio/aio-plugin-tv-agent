@@ -42,6 +42,16 @@ adb install -r ../dist/android/tv-agent-debug.apk
 
 应用同时注册 `LAUNCHER` 与 `LEANBACK_LAUNCHER`，支持没有触摸屏的电视设备。WebView 页面加载本地资源；AIO 插件模式则由宿主注入 `window.aioPlugin`，页面无需维护两套业务协议。
 
+## 本地预览
+
+不要直接双击 `frontend/index.html`。浏览器以 `file://` 打开时没有 AIO 宿主或 Android 桥，也无法访问 `/api`。使用仓库内的开发脚本启动同源服务：
+
+```bash
+sh scripts/dev.sh
+```
+
+然后打开 `http://127.0.0.1:3000/`。该进程由同一个 Topcoat Router 提供静态前端和真实的 `/api/catalog`、`/api/agent`、`/api/context` 接口；AIO 打包运行时仍由宿主负责注入前端。
+
 ## 接口
 
 `GET /api/catalog?q=动物` 返回推荐与目录。`POST /api/agent` 接收 `{"message":"来一部治愈的动物短剧"}`，返回 `intent`、`message`、`suggestions` 和可选的 `selection`。当 `intent` 为 `play` 时，前端直接播放所选剧集。

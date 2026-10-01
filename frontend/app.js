@@ -71,6 +71,19 @@
       }
       return Promise.resolve(result);
     }
+    if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+      return fetch(path, {
+        method,
+        headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body)
+      }).then(async response => {
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(result?.error || `HTTP ${response.status}`);
+        }
+        return result;
+      });
+    }
     return Promise.reject(new Error('请从 AIO 工作空间或电视应用打开页面'));
   }
 

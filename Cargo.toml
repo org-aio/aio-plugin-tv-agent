@@ -8,7 +8,8 @@ license = "MIT"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 tokio = { version = "1.47.1", features = ["macros", "net", "rt-multi-thread", "signal"] }
-topcoat = { version = "0.6.2", default-features = false, features = ["discover", "router", "serve", "view"] }
+topcoat = { version = "0.6.2", default-features = false, features = ["discover", "router", "serve", "tower", "view"] }
+tower-http = { version = "0.6.2", features = ["fs"] }
 
 [profile.release]
 lto = true

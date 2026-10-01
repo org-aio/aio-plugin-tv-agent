@@ -1,19 +1,21 @@
 mod agent_engine;
 mod catalog;
 
-use std::env;
+use std::{env, path::PathBuf};
 
 use serde::Serialize;
 use topcoat::{
     Result,
     context::Cx,
     router::{
-        Router, RouterBuilderDiscoverExt,
+        Methods, Path, Router, RouterBuilderDiscoverExt,
         content::{Form, Json},
         request::headers,
         route,
+        tower::TowerRoute,
     },
 };
+use tower_http::services::{ServeDir, ServeFile};
 
 #[derive(Serialize)]
 struct RuntimeContext {
@@ -26,6 +28,10 @@ async fn main() {
     if let Ok(port) = env::var("AIO_PLUGIN_PORT") {
         // Topcoat 使用 PORT；AIO 隔离进程只注入 AIO_PLUGIN_PORT。
         unsafe { env::set_var("PORT", port) };
+    }
+    if env::var_os("HOST").is_none() {
+        // 本地开发统一监听 IPv4，确保 README 中的 127.0.0.1 地址可直接访问。
+        unsafe { env::set_var("HOST", "127.0.0.1") };
     }
     if let Ok(path) = env::var("AIO_PLUGIN_SOCKET") {
         #[cfg(unix)]
@@ -54,7 +60,35 @@ async fn main() {
 }
 
 fn router() -> Router {
-    Router::builder().discover().build()
+    let mut builder = Router::builder().discover();
+    if let Some(frontend) = frontend_root() {
+        let index = frontend.join("index.html");
+        let static_files = ServeDir::new(frontend).fallback(ServeFile::new(index));
+        builder = builder
+            .route(TowerRoute::new(
+                Methods::Any,
+                Path::new("/"),
+                static_files.clone(),
+            ))
+            .route(TowerRoute::new(
+                Methods::Any,
+                Path::new("/{*path}"),
+                static_files,
+            ));
+    }
+    builder.build()
+}
+
+fn frontend_root() -> Option<PathBuf> {
+    let configured = env::var_os("AIO_PLUGIN_FRONTEND").map(PathBuf::from);
+    let candidates = configured.into_iter().chain([
+        PathBuf::from("frontend"),
+        PathBuf::from("dist/frontend"),
+        PathBuf::from("/plugin/frontend"),
+    ]);
+    candidates
+        .into_iter()
+        .find(|path| path.join("index.html").is_file())
 }
 
 #[route(GET "/health")]
@@ -116,7 +150,7 @@ mod tests {
     use super::*;
     use topcoat::router::{Body, Method, StatusCode, request::Request, to_bytes};
 
-    async fn request(method: Method, path: &str, body: Body) -> (StatusCode, String) {
+    async fn request_bytes(method: Method, path: &str, body: Body) -> (StatusCode, Vec<u8>) {
         let request = Request::builder()
             .method(method)
             .uri(path)
@@ -128,7 +162,12 @@ mod tests {
         let response = router().handle(request).await;
         let status = response.status();
         let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        (status, String::from_utf8(bytes.to_vec()).unwrap())
+        (status, bytes.to_vec())
+    }
+
+    async fn request(method: Method, path: &str, body: Body) -> (StatusCode, String) {
+        let (status, bytes) = request_bytes(method, path, body).await;
+        (status, String::from_utf8(bytes).unwrap())
     }
 
     #[tokio::test]
@@ -154,6 +193,22 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert!(body.contains("tenant-test"));
         assert!(body.contains("user-test"));
+    }
+
+    #[tokio::test]
+    async fn serves_frontend_and_api_from_one_origin() {
+        let (status, body) = request(Method::GET, "/", Body::empty()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(body.contains("电视 Agent"));
+
+        let (status, body) =
+            request_bytes(Method::GET, "/assets/posters/forest-run.jpg", Body::empty()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(!body.is_empty());
+
+        let (status, body) = request(Method::GET, "/api/catalog", Body::empty()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(body.contains("\"forest-run\""));
     }
 
     #[tokio::test]
