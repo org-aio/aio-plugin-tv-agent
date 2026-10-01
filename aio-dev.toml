@@ -1,0 +1,14 @@
+[frontend]
+inputs = ["frontend"]
+command = ["sh", "-c", "rm -rf dist/frontend && mkdir -p dist/frontend && cp -R frontend/. dist/frontend/"]
+output = "dist/frontend"
+
+[backend]
+inputs = ["Cargo.toml", "Cargo.lock", "src"]
+command = ["cargo", "build"]
+output = "target/debug/aio-plugin-tv-agent"
+
+[run]
+command = ["{artifact}"]
+health = "/health"
+environment = { AIO_PLUGIN_PORT = "{port}" }

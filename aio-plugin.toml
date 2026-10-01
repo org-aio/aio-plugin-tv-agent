@@ -1,0 +1,29 @@
+schema_version = 2
+
+[plugin.marketplace]
+title = "电视 Agent"
+summary = "面向 Android TV 与 AIO 工作空间的自然语言短剧点播应用，提供遥控器焦点导航、语音点播和本地视频播放。"
+license = "MIT"
+tags = ["电视", "Android TV", "短剧", "智能体", "Topcoat"]
+
+[plugin.runtime]
+artifact = "dist/server"
+host_version = ">=2026.9.21"
+
+[plugin.runtime.process]
+image = "sha256:48a661b5e5f4560287dfc254e948825538d0f7a1379616495a424ed375afd31f"
+endpoints = []
+http_endpoints = []
+services = []
+worker_capabilities = []
+
+[plugin.frontend]
+path = "dist/frontend"
+
+[plugin.capabilities]
+database = false
+
+[[plugin.subplugins]]
+id = "tv-agent"
+pages = ["tv-agent"]
+routes = ["api"]

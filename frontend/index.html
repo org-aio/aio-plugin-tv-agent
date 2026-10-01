@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#070b0d" />
+    <title>电视 Agent</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient" aria-hidden="true"></div>
+    <main class="tv-shell" data-view="browse">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">TA</span>
+          <span class="brand-copy">
+            <strong>电视 Agent</strong>
+            <small id="runtime-context">正在连接</small>
+          </span>
+        </div>
+        <nav class="top-actions" aria-label="快捷操作">
+          <button class="nav-action" type="button" data-focus data-action="voice-search">语音点播</button>
+          <button class="nav-action" type="button" data-focus data-action="play-featured">继续观看</button>
+        </nav>
+      </header>
+
+      <section class="hero" aria-label="推荐短剧">
+        <img id="hero-poster" class="hero-poster" src="assets/posters/forest-run.jpg" alt="" />
+        <div class="hero-shade" aria-hidden="true"></div>
+        <div class="hero-content">
+          <p id="hero-kicker" class="kicker">今日推荐</p>
+          <h1 id="hero-title">森林狂奔</h1>
+          <p id="hero-synopsis" class="hero-synopsis">安静的森林被三个捣蛋鬼打破，主角决定用机智守住自己的家园。</p>
+          <div id="hero-tags" class="tag-row"></div>
+          <div class="hero-actions">
+            <button class="primary-action" type="button" data-focus data-action="play-featured">
+              <span class="action-icon" aria-hidden="true">▶</span>
+              <span>立即播放</span>
+            </button>
+            <button class="secondary-action" type="button" data-focus data-action="toggle-favorite">
+              <span class="action-icon" aria-hidden="true">＋</span>
+              <span id="favorite-label">加入片单</span>
+            </button>
+          </div>
+        </div>
+        <aside class="episode-peek" aria-label="剧集">
+          <span class="peek-label">选集</span>
+          <strong id="peek-episode">01</strong>
+          <span id="peek-duration">33 秒</span>
+        </aside>
+      </section>
+
+      <section class="agent-console" aria-label="自然语言点播">
+        <div class="agent-heading">
+          <span class="agent-pulse" aria-hidden="true"></span>
+          <div>
+            <strong>告诉我想看什么</strong>
+            <p id="agent-message">比如“来一部治愈的动物短剧”</p>
+          </div>
+        </div>
+        <form id="agent-form" class="agent-form">
+          <input
+            id="agent-input"
+            type="text"
+            autocomplete="off"
+            enterkeyhint="go"
+            placeholder="轻松、治愈、动物、冒险……"
+            aria-label="自然语言点播"
+            data-focus
+          />
+          <button class="send-action" type="submit" data-focus aria-label="提交点播">
+            <span aria-hidden="true">↗</span>
+          </button>
+        </form>
+        <div id="suggestion-row" class="suggestion-row"></div>
+      </section>
+
+      <section class="catalog-section" aria-label="短剧目录">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">为你挑选</p>
+            <h2 id="catalog-title">今晚值得看</h2>
+          </div>
+          <span id="catalog-count" class="catalog-count">3 部短剧</span>
+        </div>
+        <div id="catalog-row" class="catalog-row" role="list"></div>
+      </section>
+    </main>
+
+    <section id="player" class="player" aria-label="播放器" hidden>
+      <video id="video" playsinline preload="metadata"></video>
+      <div class="player-shade" aria-hidden="true"></div>
+      <header class="player-topbar">
+        <button id="player-back" class="player-back" type="button" data-focus data-action="close-player">返回</button>
+        <div class="player-title">
+          <strong id="player-title">森林狂奔</strong>
+          <span id="player-episode">第 1 集 · 误入森林</span>
+        </div>
+      </header>
+      <div class="player-controls">
+        <button id="player-toggle" class="round-action" type="button" data-focus data-action="toggle-playback" aria-label="播放或暂停">暂停</button>
+        <div class="player-progress">
+          <span id="player-position">00:00</span>
+          <div class="progress-track" aria-hidden="true"><i id="progress-value"></i></div>
+          <span id="player-duration">00:00</span>
+        </div>
+        <button id="player-fullscreen" class="round-action secondary" type="button" data-focus data-action="toggle-fullscreen" aria-label="全屏">全屏</button>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script defer src="app.js"></script>
+  </body>
+</html>
