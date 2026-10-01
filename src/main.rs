@@ -1,7 +1,11 @@
 mod agent_engine;
+mod ai;
 mod catalog;
+mod config;
+mod settings;
+mod tvbox;
 
-use std::{env, path::PathBuf};
+use std::{env, path::PathBuf, sync::Arc};
 
 use serde::Serialize;
 use topcoat::{
@@ -16,6 +20,16 @@ use topcoat::{
     },
 };
 use tower_http::services::{ServeDir, ServeFile};
+
+use crate::{ai::AiClient, config::AppConfig, settings::SettingsStore, tvbox::TvBoxClient};
+
+#[derive(Clone)]
+struct AppState {
+    config: AppConfig,
+    ai: AiClient,
+    tvbox: TvBoxClient,
+    settings: SettingsStore,
+}
 
 #[derive(Serialize)]
 struct RuntimeContext {
@@ -48,7 +62,7 @@ async fn main() {
             }
             let listener = tokio::net::UnixListener::bind(&path).unwrap();
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o666)).unwrap();
-            topcoat::serve(listener, router()).await.unwrap();
+            topcoat::serve(listener, router().await).await.unwrap();
             return;
         }
         #[cfg(not(unix))]
@@ -56,11 +70,30 @@ async fn main() {
             let _ = path;
         }
     }
-    topcoat::start(router()).await.unwrap();
+    topcoat::start(router().await).await.unwrap();
 }
 
-fn router() -> Router {
-    let mut builder = Router::builder().discover();
+async fn router() -> Router {
+    let config = AppConfig::load().expect("加载电视 Agent 配置失败");
+    let ai = AiClient::new(
+        config.ai_endpoint.clone(),
+        config.ai_model.clone(),
+        config.ai_key.clone(),
+        config.broker.clone(),
+    )
+    .expect("初始化 AI 客户端失败");
+    let tvbox = TvBoxClient::new(config.tvbox_config.clone(), config.broker.clone())
+        .expect("初始化影视源客户端失败");
+    let settings = SettingsStore::new(config.database_url.clone(), config.encryption_key)
+        .await
+        .expect("初始化电视 Agent 设置失败");
+    let state = Arc::new(AppState {
+        config,
+        ai,
+        tvbox,
+        settings,
+    });
+    let mut builder = Router::builder().app_context(state).discover();
     if let Some(frontend) = frontend_root() {
         let index = frontend.join("index.html");
         let static_files = ServeDir::new(frontend).fallback(ServeFile::new(index));
@@ -100,15 +133,26 @@ async fn health() -> Result<&'static str> {
 async fn describe() -> Result<Json<serde_json::Value>> {
     Ok(Json(serde_json::json!({
         "label": "电视 Agent",
-        "pages": [{
-            "id": "tv-agent",
-            "label": "电视 Agent",
-            "entry": "index.html",
-            "scene": ["workspace", "工作空间"],
-            "menu_path": ["电视 Agent"],
-            "permission": null,
-            "surface": "workspace"
-        }]
+        "pages": [
+            {
+                "id": "tv-agent",
+                "label": "电视 Agent",
+                "entry": "index.html",
+                "scene": ["workspace", "工作空间"],
+                "menu_path": ["电视 Agent"],
+                "permission": null,
+                "surface": "workspace"
+            },
+            {
+                "id": "settings",
+                "label": "电视 Agent 设置",
+                "entry": "settings.html",
+                "scene": null,
+                "menu_path": [],
+                "permission": null,
+                "surface": "fullscreen"
+            }
+        ]
     })))
 }
 
@@ -123,9 +167,55 @@ async fn catalog_view(
 
 #[route(POST "/api/agent")]
 async fn agent_reply(
+    cx: &Cx,
     Json(request): Json<agent_engine::AgentRequest>,
 ) -> Result<Json<agent_engine::AgentReply>> {
-    Ok(Json(agent_engine::respond(request)))
+    let state = topcoat::context::app_context::<Arc<AppState>>(cx);
+    let user_id = header(headers(cx), "x-aio-user-id");
+    let tenant_id = header(headers(cx), "x-aio-tenant-id");
+    let stored_key = if user_id.is_empty() {
+        None
+    } else {
+        state
+            .settings
+            .secret(&tenant_id, &user_id)
+            .await
+            .unwrap_or(None)
+    };
+    let ai = if stored_key.as_ref() == state.config.ai_key.as_ref() {
+        state.ai.clone()
+    } else {
+        AiClient::new(
+            state.config.ai_endpoint.clone(),
+            state.config.ai_model.clone(),
+            stored_key.or_else(|| state.config.ai_key.clone()),
+            state.config.broker.clone(),
+        )?
+    };
+    Ok(Json(
+        agent_engine::respond(request, &ai, &state.tvbox).await,
+    ))
+}
+
+#[route(GET "/api/settings")]
+async fn settings_view(cx: &Cx) -> Result<Json<settings::SettingsView>> {
+    let state = topcoat::context::app_context::<Arc<AppState>>(cx);
+    let headers = headers(cx);
+    let tenant = header(headers, "x-aio-tenant-id");
+    let user = header(headers, "x-aio-user-id");
+    Ok(Json(state.settings.read(&tenant, &user).await?))
+}
+
+#[route(POST "/api/settings")]
+async fn settings_save(
+    cx: &Cx,
+    Json(draft): Json<settings::SettingsDraft>,
+) -> Result<Json<settings::SettingsView>> {
+    let state = topcoat::context::app_context::<Arc<AppState>>(cx);
+    let headers = headers(cx);
+    let tenant = header(headers, "x-aio-tenant-id");
+    let user = header(headers, "x-aio-user-id");
+    Ok(Json(state.settings.save(&tenant, &user, draft).await?))
 }
 
 #[route(GET "/api/context")]
@@ -159,7 +249,7 @@ mod tests {
             .header("x-aio-user-id", "user-test")
             .body(body)
             .unwrap();
-        let response = router().handle(request).await;
+        let response = router().await.handle(request).await;
         let status = response.status();
         let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         (status, bytes.to_vec())
@@ -216,12 +306,12 @@ mod tests {
         let (status, body) = request(
             Method::POST,
             "/api/agent",
-            Body::from("{\"message\":\"我想看治愈的动物短剧\"}"),
+            Body::from("{\"message\":\"播放森林狂奔\"}"),
         )
         .await;
         assert_eq!(status, StatusCode::OK);
         assert!(body.contains("\"intent\":\"play\""));
-        assert!(body.contains("\"id\":\"llama-drama\""));
-        assert!(body.contains("\"video\":\"assets/videos/llama-drama.mp4\""));
+        assert!(body.contains("\"id\":\"forest-run\""));
+        assert!(body.contains("\"video\":\"assets/videos/forest-run.mp4\""));
     }
 }

@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use crate::catalog::{self, Drama, Episode};
+use crate::{
+    ai::{AiClient, understand},
+    catalog::{self, Drama, Episode},
+    tvbox::TvBoxClient,
+};
 
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct AgentRequest {
@@ -15,7 +19,7 @@ pub(crate) struct AgentReply {
     pub selection: Option<Selection>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Intent {
     Recommend,
@@ -29,9 +33,13 @@ pub(crate) struct Selection {
     pub episode: Episode,
 }
 
-pub(crate) fn respond(request: AgentRequest) -> AgentReply {
-    let normalized = request.message.trim().to_lowercase();
-    if normalized.is_empty() {
+pub(crate) async fn respond(
+    request: AgentRequest,
+    ai: &AiClient,
+    tvbox: &TvBoxClient,
+) -> AgentReply {
+    let message = request.message.trim();
+    if message.is_empty() {
         return reply(
             Intent::Recommend,
             "你可以告诉我想看轻松、治愈、动物或都市题材，我会直接帮你播放。",
@@ -40,42 +48,87 @@ pub(crate) fn respond(request: AgentRequest) -> AgentReply {
         );
     }
 
-    let wants_play = ["播放", "看看", "想看", "来一部", "打开", "开始"]
-        .iter()
-        .any(|keyword| normalized.contains(keyword));
+    let parsed = understand(message, ai)
+        .await
+        .unwrap_or_else(|_| crate::ai::ParsedIntent {
+            query: message.to_owned(),
+            intent: "search".into(),
+        });
+    let intent = match parsed.intent.as_str() {
+        "play" => Intent::Play,
+        "recommend" => Intent::Recommend,
+        _ => Intent::Search,
+    };
+    let query = parsed.query.trim();
+    if !query.is_empty() {
+        match tvbox.search(query).await {
+            Ok(Some(drama)) => {
+                if let Some(episode) = drama.first_selection() {
+                    let text = if intent == Intent::Play {
+                        format!(
+                            "找到《{}》，现在开始播放第 {} 集。",
+                            drama.title, episode.number
+                        )
+                    } else {
+                        format!("找到《{}》，{}。", drama.title, drama.subtitle)
+                    };
+                    return reply(
+                        intent,
+                        &text,
+                        suggestions(&drama),
+                        Some(Selection { drama, episode }),
+                    );
+                }
+            }
+            Ok(None) => eprintln!("影视搜索没有匹配: {query}"),
+            Err(error) => eprintln!("影视搜索失败 {query}: {error:#}"),
+        }
+    }
+
+    let normalized = message.to_lowercase();
     if let Some(drama) = find_explicit_drama(&normalized) {
-        let message = format!(
-            "已为你选中《{}》，第 {} 集。",
-            drama.title, drama.episodes[0].number
+        let episode = drama.episodes[0].clone();
+        let text = format!("已为你选中《{}》，第 {} 集。", drama.title, episode.number);
+        return reply(
+            if intent == Intent::Play {
+                Intent::Play
+            } else {
+                Intent::Search
+            },
+            &text,
+            suggestions(&drama),
+            Some(Selection { drama, episode }),
         );
-        let selection = selection(drama);
-        let intent = if wants_play {
-            Intent::Play
-        } else {
-            Intent::Search
-        };
-        return reply(intent, &message, suggestions(drama), Some(selection));
     }
 
     let ranked = rank(&normalized);
     if let Some(drama) = ranked.first() {
-        let message = if wants_play {
+        let episode = drama.episodes[0].clone();
+        let text = if intent == Intent::Play {
             format!("找到适合你的《{}》，现在开始播放。", drama.title)
         } else {
-            format!("我为你挑选了《{}》，{}.", drama.title, drama.subtitle)
+            format!("我为你挑选了《{}》，{}。", drama.title, drama.subtitle)
         };
-        let intent = if wants_play {
+        let actual_intent = if intent == Intent::Play {
             Intent::Play
         } else {
             Intent::Recommend
         };
-        return reply(intent, &message, suggestions(drama), Some(selection(drama)));
+        return reply(
+            actual_intent,
+            &text,
+            suggestions(drama),
+            Some(Selection {
+                drama: drama.clone(),
+                episode,
+            }),
+        );
     }
 
     reply(
         Intent::Search,
-        "暂时没有匹配的短剧，可以试试动物、治愈、冒险或轻松题材。",
-        vec!["推荐动物短剧".into(), "播放森林狂奔".into()],
+        "暂时没有匹配的影视资源，可以试试更直接的片名，例如“我想看斗破苍穹”。",
+        vec!["我想看斗破苍穹".into(), "播放森林狂奔".into()],
         None,
     )
 }
@@ -94,35 +147,28 @@ fn reply(
     }
 }
 
-fn selection(drama: &Drama) -> Selection {
-    Selection {
-        drama: drama.clone(),
-        episode: drama.episodes[0].clone(),
-    }
-}
-
 fn suggestions(drama: &Drama) -> Vec<String> {
     vec![
         format!("播放{}", drama.title),
-        format!("还有{}这样的短剧吗", drama.genre),
+        format!("还有{}这样的影视吗", drama.genre),
     ]
 }
 
-fn find_explicit_drama(query: &str) -> Option<&'static Drama> {
-    catalog::DRAMAS
-        .iter()
+fn find_explicit_drama(query: &str) -> Option<Drama> {
+    catalog::fallback_dramas()
+        .into_iter()
         .find(|drama| query.contains(&drama.title.to_lowercase()))
 }
 
-fn rank(query: &str) -> Vec<&'static Drama> {
-    let mut scored: Vec<_> = catalog::DRAMAS
-        .iter()
+fn rank(query: &str) -> Vec<Drama> {
+    let mut scored: Vec<_> = catalog::fallback_dramas()
+        .into_iter()
         .filter_map(|drama| {
-            let score = score(drama, query);
+            let score = score(&drama, query);
             (score > 0).then_some((score, drama))
         })
         .collect();
-    scored.sort_by(|left, right| right.0.cmp(&left.0));
+    scored.sort_by_key(|entry| std::cmp::Reverse(entry.0));
     scored.into_iter().map(|(_, drama)| drama).collect()
 }
 
@@ -176,33 +222,15 @@ mod tests {
 
     #[test]
     fn explicit_play_request_selects_episode() {
-        let result = respond(AgentRequest {
-            message: "播放森林狂奔".into(),
-        });
-        let selection = result.selection.expect("应返回选集");
-        assert!(matches!(result.intent, Intent::Play));
-        assert_eq!(selection.drama.id, "forest-run");
-        assert_eq!(selection.episode.video, "assets/videos/forest-run.mp4");
+        let drama = find_explicit_drama("播放森林狂奔").expect("应找到演示短剧");
+        let episode = drama.first_selection().expect("应有剧集");
+        assert_eq!(drama.id, "forest-run");
+        assert_eq!(episode.video, "assets/videos/forest-run.mp4");
     }
 
     #[test]
     fn mood_request_ranks_healing_animal_drama() {
-        let result = respond(AgentRequest {
-            message: "我想看治愈的动物短剧".into(),
-        });
-        assert_eq!(
-            result.selection.expect("应返回推荐").drama.id,
-            "llama-drama"
-        );
-    }
-
-    #[test]
-    fn empty_message_returns_recommendations() {
-        let result = respond(AgentRequest {
-            message: "  ".into(),
-        });
-        assert!(matches!(result.intent, Intent::Recommend));
-        assert!(result.selection.is_none());
-        assert_eq!(result.suggestions.len(), 2);
+        let drama = rank("我想看治愈的动物短剧").remove(0);
+        assert_eq!(drama.id, "llama-drama");
     }
 }

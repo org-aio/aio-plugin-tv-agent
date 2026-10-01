@@ -247,8 +247,13 @@
     state.selectedEpisode = episode;
     state.playerReturnFocus = state.focusedElement || document.activeElement;
     setFeatured(drama);
+    const episodeLabel = `第 ${episode.number} 集 · ${episode.title}`;
+    if (window.TvAgentBridge?.playVideo?.(episode.video, drama.title, episodeLabel)) {
+      showToast(`正在打开《${drama.title}》`);
+      return;
+    }
     elements.playerTitle.textContent = drama.title;
-    elements.playerEpisode.textContent = `第 ${episode.number} 集 · ${episode.title}`;
+    elements.playerEpisode.textContent = episodeLabel;
     elements.video.poster = episode.poster || drama.poster;
     elements.video.src = episode.video;
     elements.player.hidden = false;
@@ -469,7 +474,7 @@
         : `AIO · ${context?.tenant_id || '未提供'} · ${identity}`;
       setFeatured(catalog.featured);
       renderCatalog(catalog.items);
-      renderSuggestions(['来一部治愈的动物短剧', '播放咖啡奇旅', '轻松搞笑的短剧']);
+      renderSuggestions(['我想看斗破苍穹', '来一部治愈的动物短剧', '播放咖啡奇旅']);
       await focusElement(elements.agentInput);
       elements.agentMessage.textContent = '也可以直接说题材、心情或片名';
     } catch (error) {

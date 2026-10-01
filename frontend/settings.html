@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>电视 Agent 设置</title>
+    <style>
+      :root {
+        color: #f4f7f3;
+        background: #080c0e;
+        font-family: "Noto Sans SC", "PingFang SC", ui-sans-serif, system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; }
+      main {
+        width: min(760px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 54px 0 72px;
+      }
+      .eyebrow { color: #d7ff64; font-size: 13px; font-weight: 800; letter-spacing: .08em; }
+      h1 { margin: 10px 0 12px; font-size: 34px; }
+      .intro { margin: 0 0 28px; color: #9eaaa6; line-height: 1.7; }
+      form {
+        display: grid;
+        gap: 16px;
+        border: 1px solid rgb(255 255 255 / 12%);
+        border-radius: 14px;
+        background: #101719;
+        padding: 24px;
+      }
+      label { display: grid; gap: 9px; color: #d9e0dc; font-size: 14px; font-weight: 700; }
+      input {
+        min-height: 50px;
+        border: 1px solid rgb(255 255 255 / 15%);
+        border-radius: 10px;
+        background: #080c0e;
+        padding: 0 14px;
+        color: #fff;
+        font: inherit;
+      }
+      .hint { color: #84908c; font-size: 13px; line-height: 1.6; }
+      .actions { display: flex; gap: 10px; align-items: center; }
+      button {
+        min-height: 46px;
+        border: 0;
+        border-radius: 10px;
+        background: #d7ff64;
+        padding: 0 20px;
+        color: #10180d;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      button.secondary { border: 1px solid rgb(255 255 255 / 15%); background: transparent; color: #e6ece8; }
+      #status { min-height: 22px; color: #aeb9b5; font-size: 13px; }
+      .ready { color: #d7ff64; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">电视 AGENT</p>
+      <h1>AI 服务配置</h1>
+      <p class="intro">密钥只保存在当前 AIO 插件范围内，页面不会回传明文。留空保存会清除已配置的密钥。</p>
+      <form id="settings-form">
+        <label>
+          AI API Key
+          <input id="secret" type="password" autocomplete="new-password" placeholder="sk-..." />
+        </label>
+        <p id="status" class="hint">正在读取配置状态……</p>
+        <div class="actions">
+          <button type="submit">保存配置</button>
+          <button id="clear" class="secondary" type="button">清除 Key</button>
+        </div>
+      </form>
+    </main>
+    <script>
+      (() => {
+        const form = document.querySelector('#settings-form');
+        const secret = document.querySelector('#secret');
+        const status = document.querySelector('#status');
+        const clear = document.querySelector('#clear');
+
+        function request(method, path, body) {
+          if (window.aioPlugin?.json) return window.aioPlugin.json(method, path, body);
+          return fetch(path, {
+            method,
+            headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+            body: body === undefined ? undefined : JSON.stringify(body)
+          }).then(async response => {
+            const result = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(result?.error || `HTTP ${response.status}`);
+            return result;
+          });
+        }
+
+        async function refresh() {
+          const settings = await request('GET', '/api/settings');
+          status.textContent = settings.has_secret ? '已配置 AI Key' : '尚未配置 AI Key';
+          status.className = settings.has_secret ? 'hint ready' : 'hint';
+        }
+
+        form.addEventListener('submit', async event => {
+          event.preventDefault();
+          status.textContent = '正在保存……';
+          try {
+            const result = await request('POST', '/api/settings', { secret: secret.value });
+            secret.value = '';
+            status.textContent = result.has_secret ? 'AI Key 已保存' : 'AI Key 已清除';
+            status.className = result.has_secret ? 'hint ready' : 'hint';
+          } catch (error) {
+            status.textContent = error.message;
+          }
+        });
+
+        clear.addEventListener('click', async () => {
+          status.textContent = '正在清除……';
+          try {
+            await request('POST', '/api/settings', { secret: '' });
+            secret.value = '';
+            status.textContent = 'AI Key 已清除';
+            status.className = 'hint';
+          } catch (error) {
+            status.textContent = error.message;
+          }
+        });
+
+        refresh().catch(error => { status.textContent = error.message; });
+      })();
+    </script>
+  </body>
+</html>

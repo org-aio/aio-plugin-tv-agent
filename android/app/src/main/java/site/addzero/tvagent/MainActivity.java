@@ -155,6 +155,21 @@ public final class MainActivity extends Activity {
             return manager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)
                 || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
         }
+
+        @JavascriptInterface
+        public boolean playVideo(String url, String title, String subtitle) {
+            if (url == null || !url.startsWith("https://")) {
+                return false;
+            }
+            runOnUiThread(() -> {
+                Intent intent = new Intent(MainActivity.this, PlayerActivity.class);
+                intent.putExtra(PlayerActivity.EXTRA_URL, url);
+                intent.putExtra(PlayerActivity.EXTRA_TITLE, title == null ? "" : title);
+                intent.putExtra(PlayerActivity.EXTRA_SUBTITLE, subtitle == null ? "" : subtitle);
+                startActivity(intent);
+            });
+            return true;
+        }
     }
 
     private final class LocalAssetClient extends WebViewClient {
