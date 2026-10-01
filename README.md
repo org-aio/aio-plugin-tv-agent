@@ -6,7 +6,7 @@
 
 - AIO 工作空间中的插件页面：`tv-agent`
 - Topcoat Rust 后端：`/health`、`/aio/describe`、`/api/catalog`、`/api/agent`、`/api/context`、`/api/settings`
-- Android TV 页面：遥控器方向键空间导航、Enter 播放、Back 返回、语音点播
+- Android TV 页面：遥控器方向键空间导航、Enter 选集/播放、Back 返回、语音点播
 - TVBox / 影视仓搜索：读取公开配置，优先选择可直接播放的 HTTPS `.m3u8` 或 `.mp4`
 - Android TV 原生播放：HLS 通过 Media3 ExoPlayer 播放，避免电视 WebView 对 `.m3u8` 支持不完整
 - 离线兜底：网络或影视源不可用时保留三支开放授权演示短片

@@ -63,7 +63,7 @@ final class PluginRuntime {
         if (remote != null) {
             String title = remote.getString("title");
             String text = "play".equals(parsed.intent)
-                ? "找到《" + title + "》，现在开始播放第 1 集。"
+                ? "找到《" + title + "》，共 " + remote.getJSONArray("episodes").length() + " 集。请选择要播放的集数。"
                 : "找到《" + title + "》，" + remote.getString("subtitle") + "。";
             return reply(
                 parsed.intent,
@@ -86,7 +86,7 @@ final class PluginRuntime {
         }
         String title = selected.getString("title");
         String text = "play".equals(parsed.intent)
-            ? "找到适合你的《" + title + "》，现在开始播放。"
+            ? "找到适合你的《" + title + "》，共 " + selected.getJSONArray("episodes").length() + " 集。请选择要播放的集数。"
             : "我为你挑选了《" + title + "》，" + selected.getString("subtitle") + "。";
         return reply(
             parsed.intent,

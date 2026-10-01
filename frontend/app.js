@@ -17,6 +17,10 @@
     catalogTitle: document.querySelector('#catalog-title'),
     catalogCount: document.querySelector('#catalog-count'),
     catalog: document.querySelector('#catalog-row'),
+    episodePicker: document.querySelector('#episode-picker'),
+    episodePickerTitle: document.querySelector('#episode-picker-title'),
+    episodePickerMeta: document.querySelector('#episode-picker-meta'),
+    episodeList: document.querySelector('#episode-list'),
     player: document.querySelector('#player'),
     video: document.querySelector('#video'),
     playerTitle: document.querySelector('#player-title'),
@@ -33,7 +37,9 @@
     featured: null,
     selectedDrama: null,
     selectedEpisode: null,
+    pickerDrama: null,
     focusedElement: null,
+    pickerReturnFocus: null,
     playerReturnFocus: null,
     controlsTimer: null,
     toastTimer: null,
@@ -47,8 +53,9 @@
       elements.agentInput.select();
     },
     'voice-search': startVoiceInput,
-    'play-featured': () => playSelection(state.featured, state.featured?.episodes?.[0]),
+    'play-featured': () => openEpisodePicker(state.featured),
     'toggle-favorite': toggleFavorite,
+    'close-episode-picker': closeEpisodePicker,
     'close-player': closePlayer,
     'toggle-playback': togglePlayback,
     'toggle-fullscreen': toggleFullscreen
@@ -144,7 +151,7 @@
       card.dataset.action = 'play-drama';
       card.dataset.dramaId = drama.id;
       card.setAttribute('role', 'listitem');
-      card.setAttribute('aria-label', `播放${drama.title}`);
+      card.setAttribute('aria-label', `选择${drama.title}的集数`);
       card.innerHTML = `
         <img src="${escapeHtml(drama.poster)}" alt="" />
         <span class="card-shade" aria-hidden="true"></span>
@@ -154,7 +161,7 @@
           <span>${escapeHtml(drama.subtitle)} · ${drama.episodes?.length || 0} 集</span>
         </span>`;
       card.addEventListener('focus', () => setFeatured(drama));
-      card.addEventListener('click', () => playSelection(drama, drama.episodes?.[0]));
+      card.addEventListener('click', () => openEpisodePicker(drama));
       elements.catalog.append(card);
     });
   }
@@ -197,7 +204,7 @@
       if (reply.selection) {
         setFeatured(reply.selection.drama);
         if (reply.intent === 'play') {
-          playSelection(reply.selection.drama, reply.selection.episode);
+          openEpisodePicker(reply.selection.drama, reply.selection.episode);
         } else {
           replaceCatalog([reply.selection.drama]);
           focusElement(`[data-drama-id="${CSS.escape(reply.selection.drama.id)}"]`);
@@ -241,11 +248,60 @@
     }
   }
 
+  function openEpisodePicker(drama, preferredEpisode) {
+    if (!drama?.episodes?.length) {
+      showToast('这部剧暂时没有可播放的剧集');
+      return;
+    }
+    state.pickerDrama = drama;
+    state.pickerReturnFocus = state.focusedElement || document.activeElement;
+    setFeatured(drama);
+    elements.episodePickerTitle.textContent = drama.title;
+    elements.episodePickerMeta.textContent = `共 ${drama.episodes.length} 集，选择后开始播放`;
+    elements.episodeList.replaceChildren();
+
+    drama.episodes.forEach(episode => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'episode-option';
+      button.dataset.focus = '';
+      button.dataset.action = 'play-episode';
+      button.dataset.episodeNumber = String(episode.number);
+      button.setAttribute('role', 'listitem');
+      button.setAttribute('aria-label', `播放${drama.title}第${episode.number}集`);
+      button.innerHTML = `
+        <strong>${String(episode.number).padStart(2, '0')}</strong>
+        <span>${escapeHtml(episode.title || `第 ${episode.number} 集`)}</span>`;
+      button.addEventListener('click', () => chooseEpisode(drama, episode));
+      elements.episodeList.append(button);
+    });
+
+    elements.episodePicker.hidden = false;
+    const preferred = preferredEpisode
+      ? elements.episodeList.querySelector(`[data-episode-number="${CSS.escape(String(preferredEpisode.number))}"]`)
+      : null;
+    focusElement(preferred || elements.episodeList.querySelector('.episode-option'));
+  }
+
+  function chooseEpisode(drama, episode) {
+    if (!drama || !episode) return;
+    elements.episodePicker.hidden = true;
+    state.pickerDrama = null;
+    playSelection(drama, episode);
+  }
+
+  function closeEpisodePicker() {
+    if (elements.episodePicker.hidden) return;
+    elements.episodePicker.hidden = true;
+    state.pickerDrama = null;
+    focusElement(state.pickerReturnFocus);
+  }
+
   function playSelection(drama, episode) {
     if (!drama || !episode) return;
     state.selectedDrama = drama;
     state.selectedEpisode = episode;
-    state.playerReturnFocus = state.focusedElement || document.activeElement;
+    state.playerReturnFocus = state.pickerReturnFocus || state.focusedElement || document.activeElement;
     setFeatured(drama);
     const episodeLabel = `第 ${episode.number} 集 · ${episode.title}`;
     if (window.TvAgentBridge?.playVideo?.(episode.video, drama.title, episodeLabel)) {
@@ -316,7 +372,12 @@
   }
 
   function visibleFocusableElements() {
-    return [...document.querySelectorAll('[data-focus]')].filter(element => (
+    const root = !elements.player.hidden
+      ? elements.player
+      : !elements.episodePicker.hidden
+        ? elements.episodePicker
+        : elements.shell;
+    return [...root.querySelectorAll('[data-focus]')].filter(element => (
       !element.disabled &&
       element.offsetParent !== null &&
       element.getClientRects().length > 0
@@ -379,7 +440,11 @@
     const action = element.dataset.action;
     if (action === 'play-drama') {
       const drama = state.catalog?.items.find(item => item.id === element.dataset.dramaId);
-      playSelection(drama, drama?.episodes?.[0]);
+      openEpisodePicker(drama);
+      return;
+    }
+    if (action === 'play-episode') {
+      element.click();
       return;
     }
     if (action === 'suggestion') {
@@ -398,7 +463,11 @@
       ArrowDown: () => moveFocus('ArrowDown'),
       Enter: activateFocused,
       Escape: () => {
-        if (!elements.player.hidden) closePlayer();
+        if (!elements.player.hidden) {
+          closePlayer();
+        } else if (!elements.episodePicker.hidden) {
+          closeEpisodePicker();
+        }
       },
       ' ': togglePlayback
     };
@@ -418,6 +487,10 @@
       closePlayer();
       return true;
     }
+    if (!elements.episodePicker.hidden) {
+      closeEpisodePicker();
+      return true;
+    }
     return false;
   };
 
@@ -430,7 +503,7 @@
     const target = event.target.closest?.('[data-action]');
     if (!target) return;
     const action = target.dataset.action;
-    if (action === 'play-drama' || action === 'suggestion') return;
+    if (action === 'play-drama' || action === 'play-episode' || action === 'suggestion') return;
     actionHandlers[action]?.();
   });
 

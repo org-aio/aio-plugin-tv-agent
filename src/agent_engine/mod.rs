@@ -66,8 +66,9 @@ pub(crate) async fn respond(
                 if let Some(episode) = drama.first_selection() {
                     let text = if intent == Intent::Play {
                         format!(
-                            "找到《{}》，现在开始播放第 {} 集。",
-                            drama.title, episode.number
+                            "找到《{}》，共 {} 集。请选择要播放的集数。",
+                            drama.title,
+                            drama.episodes.len()
                         )
                     } else {
                         format!("找到《{}》，{}。", drama.title, drama.subtitle)
@@ -105,7 +106,11 @@ pub(crate) async fn respond(
     if let Some(drama) = ranked.first() {
         let episode = drama.episodes[0].clone();
         let text = if intent == Intent::Play {
-            format!("找到适合你的《{}》，现在开始播放。", drama.title)
+            format!(
+                "找到适合你的《{}》，共 {} 集。请选择要播放的集数。",
+                drama.title,
+                drama.episodes.len()
+            )
         } else {
             format!("我为你挑选了《{}》，{}。", drama.title, drama.subtitle)
         };

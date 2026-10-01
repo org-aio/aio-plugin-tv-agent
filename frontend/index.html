@@ -87,6 +87,29 @@
       </section>
     </main>
 
+    <section
+      id="episode-picker"
+      class="episode-picker"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="episode-picker-title"
+      hidden
+    >
+      <div class="episode-dialog">
+        <header class="episode-dialog-header">
+          <div>
+            <p class="section-kicker">选择剧集</p>
+            <h2 id="episode-picker-title">选集</h2>
+            <p id="episode-picker-meta" class="episode-dialog-meta">共 1 集，选择后开始播放</p>
+          </div>
+          <button id="episode-picker-close" class="secondary-action" type="button" data-focus data-action="close-episode-picker">
+            返回
+          </button>
+        </header>
+        <div id="episode-list" class="episode-list" role="list"></div>
+      </div>
+    </section>
+
     <section id="player" class="player" aria-label="播放器" hidden>
       <video id="video" playsinline preload="metadata"></video>
       <div class="player-shade" aria-hidden="true"></div>

@@ -531,6 +531,86 @@ input:focus {
   color: #9ba8a3;
 }
 
+.episode-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 16;
+  display: grid;
+  place-items: center;
+  background: rgb(3 6 7 / 78%);
+  padding: 28px;
+}
+
+.episode-dialog {
+  display: grid;
+  width: min(1120px, 100%);
+  max-height: min(82vh, 820px);
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 8px;
+  background: #101718;
+  box-shadow: 0 30px 90px rgb(0 0 0 / 52%);
+}
+
+.episode-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+  padding: 22px 24px;
+}
+
+.episode-dialog-header h2 {
+  margin: 6px 0 0;
+  font-size: clamp(24px, 2.4vw, 38px);
+}
+
+.episode-dialog-meta {
+  margin: 6px 0 0;
+  color: #99a6a1;
+  font-size: 13px;
+}
+
+.episode-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 10px;
+  overflow-y: auto;
+  padding: 20px 24px 26px;
+  scrollbar-color: #54605b #0a0f10;
+}
+
+.episode-option {
+  display: grid;
+  min-height: 62px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 7px;
+  background: #151e1f;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.episode-option strong {
+  font-size: 19px;
+}
+
+.episode-option span {
+  overflow: hidden;
+  width: 100%;
+  color: #92a09b;
+  font-size: 11px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.episode-option.is-focused {
+  transform: translateY(-3px);
+}
+
 .player.is-controls-hidden .player-topbar,
 .player.is-controls-hidden .player-controls,
 .player.is-controls-hidden .player-shade {
@@ -636,6 +716,20 @@ input:focus {
 
   .episode-peek {
     display: none;
+  }
+
+  .episode-picker {
+    padding: 12px;
+  }
+
+  .episode-dialog-header {
+    align-items: flex-start;
+    padding: 18px;
+  }
+
+  .episode-list {
+    grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+    padding: 16px 18px 20px;
   }
 
   .catalog-row {
